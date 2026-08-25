@@ -5,9 +5,6 @@ from datetime import datetime, timedelta, timezone
 
 st.set_page_config(page_title="Live Market Tracker", layout="centered")
 
-# Auto Refresh every 10 seconds
-st.markdown("<meta http-equiv='refresh' content='10'>", unsafe_allow_html=True)
-
 st.markdown("""
     <style>
     .metric-card {
@@ -27,8 +24,8 @@ st.title("📊 Live Market Tracker")
 def fetch_symbol_data(symbol, name):
     try:
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        response = urllib.request.urlopen(req)
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        response = urllib.request.urlopen(req, timeout=5)
         data = json.loads(response.read().decode())
         
         meta = data['chart']['result'][0]['meta']
@@ -48,14 +45,16 @@ def fetch_symbol_data(symbol, name):
     except Exception as e:
         return None
 
-# Fetching Nifty & Sensex Data
-nifty_data = fetch_symbol_data("%5NSEI", "NIFTY SPOT")
-sensex_data = fetch_symbol_data("%5BSESN", "SENSEX")
+if st.button("🔄 Refresh Data"):
+    st.rerun()
+
+nifty_data = fetch_symbol_data("^NSEI", "NIFTY SPOT")
+sensex_data = fetch_symbol_data("^BSESN", "SENSEX")
 
 symbols_data = [d for d in [nifty_data, sensex_data] if d is not None]
 
 if not symbols_data:
-    st.info("Market Data Loading...")
+    st.info("Market Data Loading... Please Refresh.")
 else:
     for row in symbols_data:
         card_class = "bullish" if row["State"] == "BULL" else "bearish"
@@ -73,5 +72,6 @@ else:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
 
 
