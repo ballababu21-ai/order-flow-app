@@ -3,14 +3,13 @@ import hashlib
 import hmac
 import struct
 import time
-from fyers_apiv3 import fyersModel
 import requests
 import streamlit as st
 
 st.set_page_config(page_title="Live Market Tracker", layout="centered")
 
 
-# --- PURE PYTHON TOTP (No external pyotp required) ---
+# --- PURE PYTHON TOTP GENERATOR ---
 def get_totp_code(secret):
   secret = secret.strip().replace(" ", "").upper()
   key = base64.b32decode(secret + "=" * ((8 - len(secret) % 8) % 8))
@@ -23,9 +22,9 @@ def get_totp_code(secret):
   return f"{code:06d}"
 
 
-# --- FYERS AUTO-LOGIN & TOKEN GENERATION ---
+# --- FYERS AUTO AUTH & ACCESS TOKEN ---
 @st.cache_resource(ttl=86400)
-def get_fyers_instance():
+def get_fyers_access_token():
   try:
     app_id = st.secrets["APP_ID"]
     secret_key = st.secrets["SECRET_KEY"]
@@ -36,16 +35,19 @@ def get_fyers_instance():
 
     totp_code = get_totp_code(totp_key)
 
+    # 1. Send OTP
     r1 = requests.post(
         "https://api-v3.fyers.in/identity/v2/send_login_otp",
         json={"fy_id": fyers_id, "app_id": "2"},
     ).json()
 
+    # 2. Verify OTP
     r2 = requests.post(
         "https://api-v3.fyers.in/identity/v2/verify_otp",
         json={"request_key": r1.get("request_key"), "otp": totp_code},
     ).json()
 
+    # 3. Verify PIN
     r3 = requests.post(
         "https://api-v3.fyers.in/identity/v2/verify_pin",
         json={
@@ -56,6 +58,7 @@ def get_fyers_instance():
     ).json()
     token_val = r3.get("data", {}).get("access_token")
 
+    # 4. Auth Code
     headers = {"Authorization": f"Bearer {token_val}"}
     r4 = requests.post(
         "https://api-v3.fyers.in/identity/v2/token",
@@ -67,36 +70,42 @@ def get_fyers_instance():
             "state": "sample",
         },
     ).json()
+    auth_code = r4.get("auth_code")
 
-    session = fyersModel.SessionModel(
-        client_id=app_id,
-        secret_key=secret_key,
-        redirect_uri=redirect_uri,
-        response_type="code",
-        grant_type="authorization_code",
-    )
-    session.set_token(r4.get("auth_code"))
-    access_token = session.generate_token().get("access_token")
+    # 5. Generate Final Access Token
+    app_id_hash = hashlib.sha256(f"{app_id}:{secret_key}".encode()).hexdigest()
+    payload = {
+        "grant_type": "authorization_code",
+        "appIdHash": app_id_hash,
+        "code": auth_code,
+    }
 
-    return fyersModel.FyersModel(
-        client_id=app_id, is_async=False, token=access_token, log_path=""
-    )
+    r5 = requests.post(
+        "https://api-v3.fyers.in/api/v3/validate-authcode", json=payload
+    ).json()
+
+    return r5.get("access_token")
   except Exception as e:
     st.error(f"Fyers Auth Error: {e}")
     return None
 
 
-# --- UI & LIVE DATA TRACKER ---
+# --- UI & LIVE DATA ---
 st.title("📊 Live Market Tracker")
 
 if st.button("🔄 Refresh Data"):
   st.rerun()
 
-fyers = get_fyers_instance()
+access_token = get_fyers_access_token()
 
-if fyers:
-  data = {"symbols": "NSE:NIFTY50-INDEX,NSE:NIFTYBANK-INDEX"}
-  res = fyers.quotes(data=data)
+if access_token:
+  app_id = st.secrets["APP_ID"]
+  headers = {"Authorization": f"{app_id}:{access_token}"}
+  symbols = "NSE:NIFTY50-INDEX,NSE:NIFTYBANK-INDEX"
+
+  res = requests.get(
+      f"https://api-v3.fyers.in/data/quotes?symbols={symbols}", headers=headers
+  ).json()
 
   if res.get("s") == "ok":
     quotes = {item["n"]: item["v"] for item in res.get("d", [])}
@@ -118,4 +127,4 @@ if fyers:
         delta=round(banknifty.get("ch", 0), 2),
     )
   else:
-    st.warning("డేటా పొందడంలో ఇబ్బంది వచ్చింది. Secrets సరిచూసుకోండి.")
+    st.warning("డేటా ఫెచ్ కాలేదు. Secrets లోని వివరాలు తనిఖీ చేయండి.")
