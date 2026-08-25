@@ -1,77 +1,75 @@
+
 import streamlit as st
-import json
-import urllib.request
-from datetime import datetime, timedelta, timezone
+import pyotp
+import requests
+from fyers_apiv3 import fyersModel
 
 st.set_page_config(page_title="Live Market Tracker", layout="centered")
 
-st.markdown("""
-    <style>
-    .metric-card {
-        background-color: #1e222d;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 12px;
-        color: white;
-    }
-    .bullish { border-left: 5px solid #26a69a; }
-    .bearish { border-left: 5px solid #ef5350; }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("📊 Live Market Tracker")
-
-def fetch_symbol_data(symbol, name):
+# --- FYERS AUTO-LOGIN & TOKEN GENERATION ---
+@st.cache_resource(ttl=86400)
+def get_fyers_instance():
     try:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1m&range=1d"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        response = urllib.request.urlopen(req, timeout=5)
-        data = json.loads(response.read().decode())
-        
-        meta = data['chart']['result'][0]['meta']
-        latest_price = round(meta['regularMarketPrice'], 2)
-        previous_close = round(meta['chartPreviousClose'], 2)
-        price_change = round(latest_price - previous_close, 2)
-        
-        # Indian Standard Time (IST: UTC+5:30)
-        ist_offset = timezone(timedelta(hours=5, minutes=30))
-        curr_time = datetime.now(ist_offset).strftime("%I:%M:%S %p")
-        
-        state = "BULL" if price_change >= 0 else "BEAR"
-        signal = "STRONG TREND" if abs(price_change) > 50 else "SIDEWAYS / FLOW ONLY"
-        wall = f"Prev Close: {previous_close} | Change: {price_change}"
+        app_id = st.secrets["APP_ID"]
+        secret_key = st.secrets["SECRET_KEY"]
+        fyers_id = st.secrets["FYERS_ID"]
+        pin = st.secrets["PIN"]
+        totp_key = st.secrets["TOTP_KEY"]
+        redirect_uri = "https://127.0.0.1"
 
-        return {"Time": curr_time, "Symbol": f"{name} ({latest_price})", "State": state, "Signal": signal, "Wall": wall}
+        totp_code = pyotp.TOTP(totp_key).now()
+        
+        r1 = requests.post("https://api-v3.fyers.in/identity/v2/send_login_otp", 
+                           json={"fy_id": fyers_id, "app_id": "2"}).json()
+        
+        r2 = requests.post("https://api-v3.fyers.in/identity/v2/verify_otp", 
+                           json={"request_key": r1.get("request_key"), "otp": totp_code}).json()
+        
+        r3 = requests.post("https://api-v3.fyers.in/identity/v2/verify_pin", 
+                           json={"request_key": r2.get("request_key"), "identity_type": "pin", "identifier": pin}).json()
+        token_val = r3.get("data", {}).get("access_token")
+
+        headers = {"Authorization": f"Bearer {token_val}"}
+        r4 = requests.post("https://api-v3.fyers.in/identity/v2/token", 
+                           headers=headers, 
+                           json={"client_id": app_id, "redirect_uri": redirect_uri, "response_type": "code", "state": "sample"}).json()
+        
+        session = fyersModel.SessionModel(
+            client_id=app_id, secret_key=secret_key, redirect_uri=redirect_uri,
+            response_type="code", grant_type="authorization_code"
+        )
+        session.set_token(r4.get("auth_code"))
+        access_token = session.generate_token().get("access_token")
+        
+        return fyersModel.FyersModel(client_id=app_id, is_async=False, token=access_token, log_path="")
     except Exception as e:
+        st.error(f"Fyers Auth Error: {e}")
         return None
+
+# --- UI & LIVE DATA TRACKER ---
+st.title("📊 Live Market Tracker")
 
 if st.button("🔄 Refresh Data"):
     st.rerun()
 
-nifty_data = fetch_symbol_data("^NSEI", "NIFTY SPOT")
-sensex_data = fetch_symbol_data("^BSESN", "SENSEX")
+fyers = get_fyers_instance()
 
-symbols_data = [d for d in [nifty_data, sensex_data] if d is not None]
-
-if not symbols_data:
-    st.info("Market Data Loading... Please Refresh.")
-else:
-    for row in symbols_data:
-        card_class = "bullish" if row["State"] == "BULL" else "bearish"
-        color = "#26a69a" if row["State"] == "BULL" else "#ef5350"
+if fyers:
+    data = {"symbols": "NSE:NIFTY50-INDEX,NSE:NIFTYBANK-INDEX"}
+    res = fyers.quotes(data=data)
+    
+    if res.get("s") == "ok":
+        quotes = {item["n"]: item["v"] for item in res.get("d", [])}
         
-        st.markdown(f"""
-        <div class="metric-card {card_class}">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <b style="font-size: 15px;">{row['Time']} | {row['Symbol']}</b>
-                <span style="background-color:{color}; padding:2px 8px; border-radius:4px; font-weight:bold;">{row['State']}</span>
-            </div>
-            <div style="margin-top:8px; font-size:14px;">
-                <b>Signal:</b> {row['Signal']}<br>
-                <b>Status:</b> {row['Wall']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+        nifty = quotes.get("NSE:NIFTY50-INDEX", {})
+        banknifty = quotes.get("NSE:NIFTYBANK-INDEX", {})
+        
+        st.subheader("NIFTY 50")
+        st.metric(label="LTP", value=nifty.get("lp", 0), delta=round(nifty.get("ch", 0), 2))
+        
+        st.subheader("BANK NIFTY")
+        st.metric(label="LTP", value=banknifty.get("lp", 0), delta=round(banknifty.get("ch", 0), 2))
+    else:
+        st.warning("డేటా పొందడంలో ఇబ్బంది వచ్చింది. Secrets వివరాలు సరిగ్గా ఉన్నాయో లేదో తనిఖీ చేయండి.")
 
 
