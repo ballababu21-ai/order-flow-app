@@ -1,3 +1,4 @@
+
 import base64
 import hashlib
 import hmac
@@ -37,19 +38,19 @@ def get_fyers_access_token():
 
     # 1. Send OTP
     r1 = requests.post(
-        "https://api-v3.fyers.in/identity/v2/send_login_otp",
+        "https://api-t1.fyers.in/identity/v2/send_login_otp",
         json={"fy_id": fyers_id, "app_id": "2"},
     ).json()
 
     # 2. Verify OTP
     r2 = requests.post(
-        "https://api-v3.fyers.in/identity/v2/verify_otp",
+        "https://api-t1.fyers.in/identity/v2/verify_otp",
         json={"request_key": r1.get("request_key"), "otp": totp_code},
     ).json()
 
     # 3. Verify PIN
     r3 = requests.post(
-        "https://api-v3.fyers.in/identity/v2/verify_pin",
+        "https://api-t1.fyers.in/identity/v2/verify_pin",
         json={
             "request_key": r2.get("request_key"),
             "identity_type": "pin",
@@ -61,7 +62,7 @@ def get_fyers_access_token():
     # 4. Auth Code
     headers = {"Authorization": f"Bearer {token_val}"}
     r4 = requests.post(
-        "https://api-v3.fyers.in/identity/v2/token",
+        "https://api-t1.fyers.in/identity/v2/token",
         headers=headers,
         json={
             "client_id": app_id,
@@ -73,7 +74,9 @@ def get_fyers_access_token():
     auth_code = r4.get("auth_code")
 
     # 5. Generate Final Access Token
-    app_id_hash = hashlib.sha256(f"{app_id}:{secret_key}".encode()).hexdigest()
+    app_id_hash = hashlib.sha256(
+        f"{app_id}:{secret_key}".encode()
+    ).hexdigest()
     payload = {
         "grant_type": "authorization_code",
         "appIdHash": app_id_hash,
@@ -81,7 +84,7 @@ def get_fyers_access_token():
     }
 
     r5 = requests.post(
-        "https://api-v3.fyers.in/api/v3/validate-authcode", json=payload
+        "https://api-t1.fyers.in/api/v3/validate-authcode", json=payload
     ).json()
 
     return r5.get("access_token")
@@ -101,17 +104,18 @@ access_token = get_fyers_access_token()
 if access_token:
   app_id = st.secrets["APP_ID"]
   headers = {"Authorization": f"{app_id}:{access_token}"}
-  symbols = "NSE:NIFTY50-INDEX,NSE:NIFTYBANK-INDEX"
+  symbols = "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
 
   res = requests.get(
-      f"https://api-v3.fyers.in/data/quotes?symbols={symbols}", headers=headers
+      f"https://api-t1.fyers.in/data/quotes?symbols={symbols}",
+      headers=headers,
   ).json()
 
   if res.get("s") == "ok":
     quotes = {item["n"]: item["v"] for item in res.get("d", [])}
 
     nifty = quotes.get("NSE:NIFTY50-INDEX", {})
-    banknifty = quotes.get("NSE:NIFTYBANK-INDEX", {})
+    sensex = quotes.get("BSE:SENSEX-INDEX", {})
 
     st.subheader("NIFTY 50")
     st.metric(
@@ -120,11 +124,11 @@ if access_token:
         delta=round(nifty.get("ch", 0), 2),
     )
 
-    st.subheader("BANK NIFTY")
+    st.subheader("SENSEX")
     st.metric(
         label="LTP",
-        value=banknifty.get("lp", 0),
-        delta=round(banknifty.get("ch", 0), 2),
+        value=sensex.get("lp", 0),
+        delta=round(sensex.get("ch", 0), 2),
     )
   else:
     st.warning("డేటా ఫెచ్ కాలేదు. Secrets లోని వివరాలు తనిఖీ చేయండి.")
