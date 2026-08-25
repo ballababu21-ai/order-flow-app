@@ -1,4 +1,3 @@
-
 import base64
 import hashlib
 import hmac
@@ -27,67 +26,111 @@ def get_totp_code(secret):
 @st.cache_resource(ttl=86400)
 def get_fyers_access_token():
   try:
-    app_id = st.secrets["APP_ID"]
-    secret_key = st.secrets["SECRET_KEY"]
-    fyers_id = st.secrets["FYERS_ID"]
-    pin = st.secrets["PIN"]
-    totp_key = st.secrets["TOTP_KEY"]
+    app_id = st.secrets["APP_ID"].strip()
+    secret_key = st.secrets["SECRET_KEY"].strip()
+    fyers_id = st.secrets["FYERS_ID"].strip()
+    pin = st.secrets["PIN"].strip()
+    totp_key = st.secrets["TOTP_KEY"].strip()
     redirect_uri = "https://127.0.0.1"
 
     totp_code = get_totp_code(totp_key)
 
-    # 1. Send OTP
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Content-Type": "application/json",
+    }
+
+    # Step 1: Send OTP
     r1 = requests.post(
         "https://api-t1.fyers.in/identity/v2/send_login_otp",
         json={"fy_id": fyers_id, "app_id": "2"},
-    ).json()
+        headers=headers,
+    )
+    if r1.status_code != 200:
+      st.error(
+          f"Step 1 Failed [Status {r1.status_code}]: {r1.text[:200]}"
+      )
+      return None
+    res1 = r1.json()
 
-    # 2. Verify OTP
+    # Step 2: Verify OTP
     r2 = requests.post(
         "https://api-t1.fyers.in/identity/v2/verify_otp",
-        json={"request_key": r1.get("request_key"), "otp": totp_code},
-    ).json()
+        json={"request_key": res1.get("request_key"), "otp": totp_code},
+        headers=headers,
+    )
+    if r2.status_code != 200:
+      st.error(
+          f"Step 2 Failed [Status {r2.status_code}]: {r2.text[:200]}"
+      )
+      return None
+    res2 = r2.json()
 
-    # 3. Verify PIN
+    # Step 3: Verify PIN
     r3 = requests.post(
         "https://api-t1.fyers.in/identity/v2/verify_pin",
         json={
-            "request_key": r2.get("request_key"),
+            "request_key": res2.get("request_key"),
             "identity_type": "pin",
             "identifier": pin,
         },
-    ).json()
-    token_val = r3.get("data", {}).get("access_token")
+        headers=headers,
+    )
+    if r3.status_code != 200:
+      st.error(
+          f"Step 3 Failed [Status {r3.status_code}]: {r3.text[:200]}"
+      )
+      return None
+    res3 = r3.json()
+    token_val = res3.get("data", {}).get("access_token")
 
-    # 4. Auth Code
-    headers = {"Authorization": f"Bearer {token_val}"}
+    # Step 4: Auth Code
+    auth_headers = headers.copy()
+    auth_headers["Authorization"] = f"Bearer {token_val}"
+
     r4 = requests.post(
         "https://api-t1.fyers.in/identity/v2/token",
-        headers=headers,
+        headers=auth_headers,
         json={
             "client_id": app_id,
             "redirect_uri": redirect_uri,
             "response_type": "code",
             "state": "sample",
         },
-    ).json()
-    auth_code = r4.get("auth_code")
+    )
+    if r4.status_code != 200:
+      st.error(
+          f"Step 4 Failed [Status {r4.status_code}]: {r4.text[:200]}"
+      )
+      return None
+    res4 = r4.json()
+    auth_code = res4.get("auth_code")
 
-    # 5. Generate Final Access Token
+    # Step 5: Final Access Token
     app_id_hash = hashlib.sha256(
         f"{app_id}:{secret_key}".encode()
     ).hexdigest()
-    payload = {
-        "grant_type": "authorization_code",
-        "appIdHash": app_id_hash,
-        "code": auth_code,
-    }
-
     r5 = requests.post(
-        "https://api-t1.fyers.in/api/v3/validate-authcode", json=payload
-    ).json()
+        "https://api-t1.fyers.in/api/v3/validate-authcode",
+        headers=headers,
+        json={
+            "grant_type": "authorization_code",
+            "appIdHash": app_id_hash,
+            "code": auth_code,
+        },
+    )
+    if r5.status_code != 200:
+      st.error(
+          f"Step 5 Failed [Status {r5.status_code}]: {r5.text[:200]}"
+      )
+      return None
+    res5 = r5.json()
 
-    return r5.get("access_token")
+    return res5.get("access_token")
+
   except Exception as e:
     st.error(f"Fyers Auth Error: {e}")
     return None
@@ -102,8 +145,13 @@ if st.button("🔄 Refresh Data"):
 access_token = get_fyers_access_token()
 
 if access_token:
-  app_id = st.secrets["APP_ID"]
-  headers = {"Authorization": f"{app_id}:{access_token}"}
+  app_id = st.secrets["APP_ID"].strip()
+  headers = {
+      "User-Agent": (
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      ),
+      "Authorization": f"{app_id}:{access_token}",
+  }
   symbols = "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
 
   res = requests.get(
