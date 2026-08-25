@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import struct
 import time
+from fyers_apiv3 import fyersModel
 import requests
 import streamlit as st
 
@@ -10,7 +11,7 @@ st.set_page_config(page_title="Live Market Tracker", layout="centered")
 
 
 # --- TOTP GENERATOR ---
-def get_totp(secret):
+def get_totp_code(secret):
   secret = secret.strip().replace(" ", "").upper()
   key = base64.b32decode(secret + "=" * ((8 - len(secret) % 8) % 8))
   counter = struct.pack(">Q", int(time.time()) // 30)
@@ -22,9 +23,9 @@ def get_totp(secret):
   return f"{code:06d}"
 
 
-# --- FYERS AUTHENTICATION ---
+# --- FYERS AUTO-LOGIN & ACCESS TOKEN ---
 @st.cache_resource(ttl=86400)
-def get_access_token():
+def get_fyers_instance():
   try:
     app_id = st.secrets["APP_ID"].strip()
     secret_key = st.secrets["SECRET_KEY"].strip()
@@ -33,64 +34,95 @@ def get_access_token():
     totp_key = st.secrets["TOTP_KEY"].strip()
     redirect_uri = "https://127.0.0.1"
 
+    totp_code = get_totp_code(totp_key)
     headers = {"Content-Type": "application/json"}
 
-    # Step 1: Send OTP
+    # 1. Send Login OTP
+    url_send_otp = "https://api-t1.fyers.in/identity/v2/send_login_otp"
     r1 = requests.post(
-        "https://api-t1.fyers.in/api/v3/send-login-otp",
-        json={"fy_id": fyers_id, "app_id": "2"},
-        headers=headers,
-    ).json()
-    req_key = r1.get("request_key")
+        url_send_otp, json={"fy_id": fyers_id, "app_id": "2"}, headers=headers
+    )
+    res1 = r1.json()
+    if res1.get("s") != "ok":
+      st.error(f"Step 1 (Send OTP) Failed: {res1}")
+      return None
 
-    # Step 2: Verify TOTP
+    request_key = res1.get("request_key")
+
+    # 2. Verify OTP (TOTP)
+    url_verify_otp = "https://api-t1.fyers.in/identity/v2/verify_otp"
     r2 = requests.post(
-        "https://api-t1.fyers.in/api/v3/verify-otp",
-        json={"request_key": req_key, "otp": get_totp(totp_key)},
+        url_verify_otp,
+        json={"request_key": request_key, "otp": totp_code},
         headers=headers,
-    ).json()
-    req_key2 = r2.get("request_key")
+    )
+    res2 = r2.json()
+    if res2.get("s") != "ok":
+      st.error(f"Step 2 (Verify TOTP) Failed: {res2}")
+      return None
 
-    # Step 3: Verify PIN
+    request_key_2 = res2.get("request_key")
+
+    # 3. Verify PIN
+    url_verify_pin = "https://api-t1.fyers.in/identity/v2/verify_pin"
     r3 = requests.post(
-        "https://api-t1.fyers.in/api/v3/verify-pin",
+        url_verify_pin,
         json={
-            "request_key": req_key2,
+            "request_key": request_key_2,
             "identity_type": "pin",
             "identifier": pin,
         },
         headers=headers,
-    ).json()
-    token_val = r3.get("data", {}).get("access_token")
+    )
+    res3 = r3.json()
+    if res3.get("s") != "ok":
+      st.error(f"Step 3 (Verify PIN) Failed: {res3}")
+      return None
 
-    # Step 4: Get Auth Code
+    token_val = res3.get("data", {}).get("access_token")
+
+    # 4. Auth Code Generation
+    url_token = "https://api-t1.fyers.in/identity/v2/token"
+    auth_headers = {
+        "Authorization": f"Bearer {token_val}",
+        "Content-Type": "application/json",
+    }
     r4 = requests.post(
-        "https://api-t1.fyers.in/api/v3/token",
-        headers={"Authorization": f"Bearer {token_val}"},
+        url_token,
+        headers=auth_headers,
         json={
             "client_id": app_id,
             "redirect_uri": redirect_uri,
             "response_type": "code",
             "state": "sample",
         },
-    ).json()
-    auth_code = r4.get("auth_code")
+    )
+    res4 = r4.json()
+    if res4.get("s") != "ok":
+      st.error(f"Step 4 (Auth Code) Failed: {res4}")
+      return None
 
-    # Step 5: Generate Access Token
-    app_id_hash = hashlib.sha256(
-        f"{app_id}:{secret_key}".encode()
-    ).hexdigest()
-    r5 = requests.post(
-        "https://api-t1.fyers.in/api/v3/validate-authcode",
-        json={
-            "grant_type": "authorization_code",
-            "appIdHash": app_id_hash,
-            "code": auth_code,
-        },
-        headers=headers,
-    ).json()
+    auth_code = res4.get("auth_code")
 
-    return r5.get("access_token")
+    # 5. Fyers Official SDK Session for Access Token
+    session = fyersModel.SessionModel(
+        client_id=app_id,
+        secret_key=secret_key,
+        redirect_uri=redirect_uri,
+        response_type="code",
+        grant_type="authorization_code",
+    )
+    session.set_token(auth_code)
+    response = session.generate_token()
+
+    if response.get("s") == "ok":
+      access_token = response.get("access_token")
+      return fyersModel.FyersModel(
+          client_id=app_id, is_async=False, token=access_token, log_path=""
+      )
+    else:
+      st.error(f"Step 5 (Final Token) Failed: {response}")
+      return None
 
   except Exception as e:
     st.error(f"Auth Exception: {e}")
@@ -103,20 +135,15 @@ st.title("📊 Live Market Tracker")
 if st.button("🔄 Refresh Data"):
   st.rerun()
 
-token = get_access_token()
+fyers = get_fyers_instance()
 
-if token:
-  app_id = st.secrets["APP_ID"].strip()
-  headers = {"Authorization": f"{app_id}:{token}"}
-  symbols = "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
-
-  res = requests.get(
-      f"https://api-t1.fyers.in/data/quotes?symbols={symbols}",
-      headers=headers,
-  ).json()
+if fyers:
+  data = {"symbols": "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"}
+  res = fyers.quotes(data=data)
 
   if res.get("s") == "ok":
     quotes = {item["n"]: item["v"] for item in res.get("d", [])}
+
     nifty = quotes.get("NSE:NIFTY50-INDEX", {})
     sensex = quotes.get("BSE:SENSEX-INDEX", {})
 
@@ -134,6 +161,4 @@ if token:
         delta=round(sensex.get("ch", 0), 2),
     )
   else:
-    st.error("డేటా ఫెచ్ కాలేదు. Response: " + str(res))
-else:
-  st.error("Access Token జనరేట్ కాలేదు. Fyers Secrets సరిచూసుకోండి.")
+    st.warning(f"డేటా పొందడంలో ఇబ్బంది: {res}")
