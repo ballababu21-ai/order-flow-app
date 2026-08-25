@@ -3,7 +3,6 @@ import hashlib
 import hmac
 import struct
 import time
-from fyers_apiv3 import fyersModel
 import requests
 import streamlit as st
 
@@ -11,7 +10,7 @@ st.set_page_config(page_title="Live Market Tracker", layout="centered")
 
 
 # --- TOTP GENERATOR ---
-def get_totp_code(secret):
+def get_totp(secret):
   secret = secret.strip().replace(" ", "").upper()
   key = base64.b32decode(secret + "=" * ((8 - len(secret) % 8) % 8))
   counter = struct.pack(">Q", int(time.time()) // 30)
@@ -23,9 +22,9 @@ def get_totp_code(secret):
   return f"{code:06d}"
 
 
-# --- FYERS AUTO-LOGIN & ACCESS TOKEN ---
+# --- FYERS DIRECT API LOGIN ---
 @st.cache_resource(ttl=86400)
-def get_fyers_instance():
+def get_access_token():
   try:
     app_id = st.secrets["APP_ID"].strip()
     secret_key = st.secrets["SECRET_KEY"].strip()
@@ -34,116 +33,97 @@ def get_fyers_instance():
     totp_key = st.secrets["TOTP_KEY"].strip()
     redirect_uri = "https://127.0.0.1"
 
-    totp_code = get_totp_code(totp_key)
     headers = {"Content-Type": "application/json"}
 
-    # 1. Send Login OTP
-    url_send_otp = "https://api-t1.fyers.in/identity/v2/send_login_otp"
+    # 1. Send OTP
     r1 = requests.post(
-        url_send_otp, json={"fy_id": fyers_id, "app_id": "2"}, headers=headers
-    )
-    res1 = r1.json()
-    if res1.get("s") != "ok":
-      st.error(f"Step 1 (Send OTP) Failed: {res1}")
-      return None
-
-    request_key = res1.get("request_key")
-
-    # 2. Verify OTP (TOTP)
-    url_verify_otp = "https://api-t1.fyers.in/identity/v2/verify_otp"
-    r2 = requests.post(
-        url_verify_otp,
-        json={"request_key": request_key, "otp": totp_code},
+        "https://api-t1.fyers.in/api/v3/send-login-otp",
+        json={"fy_id": fyers_id, "app_id": "2"},
         headers=headers,
-    )
-    res2 = r2.json()
-    if res2.get("s") != "ok":
-      st.error(f"Step 2 (Verify TOTP) Failed: {res2}")
+    ).json()
+    req_key = r1.get("request_key")
+    if not req_key:
       return None
 
-    request_key_2 = res2.get("request_key")
+    # 2. Verify TOTP
+    r2 = requests.post(
+        "https://api-t1.fyers.in/api/v3/verify-otp",
+        json={"request_key": req_key, "otp": get_totp(totp_key)},
+        headers=headers,
+    ).json()
+    req_key2 = r2.get("request_key")
+    if not req_key2:
+      return None
 
     # 3. Verify PIN
-    url_verify_pin = "https://api-t1.fyers.in/identity/v2/verify_pin"
     r3 = requests.post(
-        url_verify_pin,
+        "https://api-t1.fyers.in/api/v3/verify-pin",
         json={
-            "request_key": request_key_2,
+            "request_key": req_key2,
             "identity_type": "pin",
             "identifier": pin,
         },
         headers=headers,
-    )
-    res3 = r3.json()
-    if res3.get("s") != "ok":
-      st.error(f"Step 3 (Verify PIN) Failed: {res3}")
+    ).json()
+    token_val = r3.get("data", {}).get("access_token")
+    if not token_val:
       return None
 
-    token_val = res3.get("data", {}).get("access_token")
-
-    # 4. Auth Code Generation
-    url_token = "https://api-t1.fyers.in/identity/v2/token"
-    auth_headers = {
-        "Authorization": f"Bearer {token_val}",
-        "Content-Type": "application/json",
-    }
+    # 4. Get Auth Code
     r4 = requests.post(
-        url_token,
-        headers=auth_headers,
+        "https://api-t1.fyers.in/api/v3/token",
+        headers={"Authorization": f"Bearer {token_val}"},
         json={
             "client_id": app_id,
             "redirect_uri": redirect_uri,
             "response_type": "code",
             "state": "sample",
         },
-    )
-    res4 = r4.json()
-    if res4.get("s") != "ok":
-      st.error(f"Step 4 (Auth Code) Failed: {res4}")
+    ).json()
+    auth_code = r4.get("auth_code")
+    if not auth_code:
       return None
 
-    auth_code = res4.get("auth_code")
+    # 5. Generate Access Token
+    app_id_hash = hashlib.sha256(
+        f"{app_id}:{secret_key}".encode()
+    ).hexdigest()
+    r5 = requests.post(
+        "https://api-t1.fyers.in/api/v3/validate-authcode",
+        json={
+            "grant_type": "authorization_code",
+            "appIdHash": app_id_hash,
+            "code": auth_code,
+        },
+        headers=headers,
+    ).json()
 
-    # 5. Fyers Official SDK Session for Access Token
-    session = fyersModel.SessionModel(
-        client_id=app_id,
-        secret_key=secret_key,
-        redirect_uri=redirect_uri,
-        response_type="code",
-        grant_type="authorization_code",
-    )
-    session.set_token(auth_code)
-    response = session.generate_token()
+    return r5.get("access_token")
 
-    if response.get("s") == "ok":
-      access_token = response.get("access_token")
-      return fyersModel.FyersModel(
-          client_id=app_id, is_async=False, token=access_token, log_path=""
-      )
-    else:
-      st.error(f"Step 5 (Final Token) Failed: {response}")
-      return None
-
-  except Exception as e:
-    st.error(f"Auth Exception: {e}")
+  except Exception:
     return None
 
 
-# --- UI & LIVE MARKET DATA ---
+# --- UI ---
 st.title("📊 Live Market Tracker")
 
 if st.button("🔄 Refresh Data"):
   st.rerun()
 
-fyers = get_fyers_instance()
+token = get_access_token()
 
-if fyers:
-  data = {"symbols": "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"}
-  res = fyers.quotes(data=data)
+if token:
+  app_id = st.secrets["APP_ID"].strip()
+  headers = {"Authorization": f"{app_id}:{token}"}
+  symbols = "NSE:NIFTY50-INDEX,BSE:SENSEX-INDEX"
+
+  res = requests.get(
+      f"https://api-t1.fyers.in/data/quotes?symbols={symbols}",
+      headers=headers,
+  ).json()
 
   if res.get("s") == "ok":
     quotes = {item["n"]: item["v"] for item in res.get("d", [])}
-
     nifty = quotes.get("NSE:NIFTY50-INDEX", {})
     sensex = quotes.get("BSE:SENSEX-INDEX", {})
 
@@ -161,4 +141,8 @@ if fyers:
         delta=round(sensex.get("ch", 0), 2),
     )
   else:
-    st.warning(f"డేటా పొందడంలో ఇబ్బంది: {res}")
+    st.error("డేటా రాలేదు. టోకెన్ లేదా సింబల్స్ చెక్ చేయండి.")
+else:
+  st.error(
+      "అథెంటికేషన్ ఫెయిల్ అయింది. Streamlit Secrets లో వివరాలు సరిచూసుకోండి."
+  )
