@@ -1,18 +1,9 @@
-import subprocess
-import sys
-
-# yfinance లేకపోతే ఆటోమేటిక్‌గా ఇన్స్టాల్ చేసే లాజిక్
-try:
-    import yfinance as yf
-except ImportError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "yfinance"])
-    import yfinance as yf
-
 import streamlit as st
-import pandas as pd
+import json
+import urllib.request
 import datetime
 
-st.set_page_config(page_title="Order Flow Mobile", layout="centered")
+st.set_page_config(page_title="Live Nifty Tracker", layout="centered")
 
 st.markdown("""
     <style>
@@ -30,22 +21,24 @@ st.markdown("""
 
 st.title("📊 Live Nifty Tracker")
 
-def fetch_market_data():
+def fetch_nifty_data():
     try:
-        nifty = yf.Ticker("^NSEI")
-        df = nifty.history(period="1d", interval="1m")
+        url = "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI?interval=1m&range=1d"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib.request.urlopen(req)
+        data = json.loads(response.read().decode())
         
-        if df.empty:
-            return []
-
-        latest_price = round(df['Close'].iloc[-1], 2)
-        open_price = df['Open'].iloc[0]
-        price_change = round(latest_price - open_price, 2)
+        result = data['chart']['result'][0]
+        meta = result['meta']
+        
+        latest_price = round(meta['regularMarketPrice'], 2)
+        previous_close = round(meta['chartPreviousClose'], 2)
+        price_change = round(latest_price - previous_close, 2)
         curr_time = datetime.datetime.now().strftime("%H:%M:%S")
         
         state = "BULL" if price_change >= 0 else "BEAR"
         signal = "STRONG TREND" if abs(price_change) > 50 else "SIDEWAYS / FLOW ONLY"
-        wall = f"Day Open: {round(open_price, 2)} | Change: {price_change}"
+        wall = f"Prev Close: {previous_close} | Change: {price_change}"
 
         return [
             {"Time": curr_time, "Strike": f"NIFTY SPOT ({latest_price})", "State": state, "Signal": signal, "Wall": wall}
@@ -56,7 +49,7 @@ def fetch_market_data():
 if st.button("🔄 Refresh Market Data"):
     st.rerun()
 
-data = fetch_market_data()
+data = fetch_nifty_data()
 
 if not data:
     st.info("Market Data Loading... (Or Market Closed)")
@@ -77,3 +70,4 @@ else:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
