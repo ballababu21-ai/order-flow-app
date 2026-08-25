@@ -1,6 +1,15 @@
+import subprocess
+import sys
+
+# yfinance లేకపోతే ఆటోమేటిక్‌గా ఇన్స్టాల్ చేసే లాజిక్
+try:
+    import yfinance as yf
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "yfinance"])
+    import yfinance as yf
+
 import streamlit as st
 import pandas as pd
-import yfinance as yf
 import datetime
 
 st.set_page_config(page_title="Order Flow Mobile", layout="centered")
