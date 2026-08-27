@@ -4,7 +4,6 @@ import requests
 
 st.set_page_config(page_title="Options Order Flow", layout="wide")
 
-# CSS Styling
 st.markdown("""
 <style>
     .metric-card { background-color: #f8f9fa; border-radius: 8px; padding: 12px; border-left: 5px solid #28a745; margin-bottom: 10px; }
@@ -19,28 +18,28 @@ st.markdown("""
 
 st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# Dhan API Direct HTTP Connection Check (No external library required)
-try:
-    if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
-        client_id = st.secrets["DHAN_CLIENT_ID"]
-        access_token = st.secrets["DHAN_ACCESS_TOKEN"]
-        
-        headers = {
-            "access-token": access_token,
-            "client-id": client_id,
-            "Content-Type": "application/json"
-        }
-        response = requests.get("https://api.dhan.co/v2/fundlimits", headers=headers, timeout=5)
-        if response.status_code == 200:
+# Dhan API Connection Check
+if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
+    client_id = str(st.secrets["DHAN_CLIENT_ID"]).strip()
+    access_token = str(st.secrets["DHAN_ACCESS_TOKEN"]).strip()
+    
+    headers = {
+        "access-token": access_token,
+        "client-id": client_id,
+        "Content-Type": "application/json"
+    }
+    try:
+        res = requests.get("https://api.dhan.co/v2/fundlimits", headers=headers, timeout=5)
+        if res.status_code == 200:
             st.success("🟢 Dhan API Connected Successfully!")
         else:
-            st.warning("⚠️ Dhan API Connected, కానీ Credentials లేదా టోకెన్ సరిచూసుకోండి.")
-    else:
-        st.error("⚠️ Streamlit Secrets లో `DHAN_CLIENT_ID` మరియు `DHAN_ACCESS_TOKEN` యాడ్ చేయండి.")
-except Exception as e:
-    st.info("ℹ️ కనెక్షన్ సింక్ అవుతోంది...")
+            st.warning(f"⚠️ Dhan API Verification (Status: {res.status_code}). Token అప్‌డేట్ చేయండి.")
+    except Exception as e:
+        st.error(f"Network Error: {e}")
+else:
+    st.error("⚠️ Streamlit Secrets లో Credentials యాడ్ చేయలేదు.")
 
-# Top Summary Card
+# Dashboard Cards
 st.markdown("""
 <div class="metric-card">
     <span class="sub-text">MARKET SENTIMENT</span>
