@@ -1,90 +1,113 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 
-st.set_page_config(page_title="Intraday Options Flow Tracker", layout="wide")
+st.set_page_config(page_title="Options Order Flow", layout="wide")
 
-st.title("📊 Options Order Flow & Futures Neutralization Dashboard")
+# Custom CSS for Mobile Responsive & Dashboard Styling
+st.markdown("""
+<style>
+    .metric-card {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 12px;
+        border-left: 5px solid #28a745;
+        margin-bottom: 10px;
+    }
+    .strike-row {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+    .badge-bull {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    .badge-bear {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 12px;
+    }
+    .sub-text {
+        font-size: 11px;
+        color: #6c757d;
+    }
+    .green-text { color: #28a745; font-weight: 600; }
+    .red-text { color: #dc3545; font-weight: 600; }
+</style>
+""", unsafe_allow_html=True)
 
-# Sidebar Filters
-st.sidebar.header("Control Panel")
-index_symbol = st.sidebar.selectbox("Select Index", ["NIFTY", "BANKNIFTY"])
-expiry = st.sidebar.date_input("Select Expiry")
+st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# Top Metrics Row
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Overall Flow Signal", "BULLISH", "+2.45L")
-col2.metric("PE Net Seller Flow", "+10.21L", "Strong PE Support")
-col3.metric("CE Net Seller Flow", "-4.15L", "Weak CE Resistance")
-col4.metric("Market Sentiment", "STRONG ALIGNMENT", delta_color="normal")
+# Top Summary Card
+st.markdown("""
+<div class="metric-card">
+    <span class="sub-text">MARKET SENTIMENT</span>
+    <h3 style="margin:0;">STRONG ALIGNMENT</h3>
+    <span class="badge-bull">OVERALL FLOW: BULLISH (+2.45L)</span>
+</div>
+""", unsafe_allow_html=True)
 
-st.divider()
+st.subheader("Real-time Strike Flow")
 
-# Sample Data Structure matching your screenshot
-data = [
+# Strike Data Rows (Matching Screenshot Structure)
+strikes = [
     {
-        "Time": "11:05",
-        "Strike": "24200 PE",
-        "CE / PE Vol": "69.73L / 46.97L",
-        "Neutralized Flow": "+1.73L",
-        "Seller Net": "+4.74L",
-        "Signal": "BULL",
-        "State": "FLOW ONLY",
-        "Build-Up": "Fresh Short Build"
+        "strike": "24200 PE", "ce_pe_vol": "69.73L / CE 46.97L",
+        "neut_flow": "+1.73L", "dir_opp": "Dir 5.45L | Opp 3.73L",
+        "seller_net": "+4.74L", "net_detail": "PE Net +4.74L | CE Net +0.00",
+        "signal": "BULL", "state": "FLOW ONLY"
     },
     {
-        "Time": "11:05",
-        "Strike": "24150 PE",
-        "CE / PE Vol": "25.88L / 8.61L",
-        "Neutralized Flow": "-72.67K",
-        "Seller Net": "+94.64K",
-        "Signal": "BEAR",
-        "State": "STRONG ALIGNMENT",
-        "Build-Up": "Fresh Short Build"
+        "strike": "24150 PE", "ce_pe_vol": "25.88L / CE 8.61L",
+        "neut_flow": "-72.67K", "dir_opp": "Dir 94.64K | Opp 1.67L",
+        "seller_net": "+94.64K", "net_detail": "PE Net +94.64K | CE Net +0.00",
+        "signal": "BEAR", "state": "STRONG ALIGNMENT"
     },
     {
-        "Time": "11:05",
-        "Strike": "24250 CE",
-        "CE / PE Vol": "35.19L / 37.56L",
-        "Neutralized Flow": "+31.14K",
-        "Seller Net": "-1.11L",
-        "Signal": "BEAR",
-        "State": "STRONG ALIGNMENT",
-        "Build-Up": "Short Covering"
-    },
-    {
-        "Time": "11:05",
-        "Strike": "24300 CE",
-        "CE / PE Vol": "1.13Cr / 75.93L",
-        "Neutralized Flow": "-26.52K",
-        "Seller Net": "+6.63L",
-        "Signal": "BEAR",
-        "State": "STRONG ALIGNMENT",
-        "Build-Up": "Fresh Long Build"
+        "strike": "24250 CE", "ce_pe_vol": "35.19L / PE 37.56L",
+        "neut_flow": "+31.14K", "dir_opp": "Dir 8.77L | Opp 8.46L",
+        "seller_net": "-1.11L", "net_detail": "PE Net +4.08L | CE Net +2.97L",
+        "signal": "BEAR", "state": "STRONG ALIGNMENT"
     }
 ]
 
-df = pd.DataFrame(data)
-
-# Styled Dataframe Display
-st.subheader("⚡ Real-time Strike-wise Flow & Cumulative Neutralization")
-
-def highlight_signal(val):
-    if val == 'BULL':
-        return 'background-color: #d4edda; color: green; font-weight: bold'
-    elif val == 'BEAR':
-        return 'background-color: #f8d7da; color: red; font-weight: bold'
-    return ''
-
-styled_df = df.style.map(highlight_signal, subset=['Signal'])
-st.dataframe(styled_df, use_container_width=True)
-
-# Futures & OI Build-up Details Section
-st.subheader("🎯 Futures Cum Neutralization & OI Signals")
-col_left, col_right = st.columns(2)
-
-with col_left:
-    st.info("**Fresh Short Build Detected**\n\nPx: -10.00 | OI: +2.3K\nVol Strength: 0.26x | OI Strength: 1.06x")
-
-with col_right:
-    st.success("**Short Covering Signal**\n\nPx: +7.10 | OI: -1.2K\nVol Strength: 0.51x | OI Strength: 0.36x")
+for row in strikes:
+    badge_cls = "badge-bull" if row["signal"] == "BULL" else "badge-bear"
+    neut_color = "green-text" if "+" in row["neut_flow"] else "red-text"
+    
+    st.markdown(f"""
+    <div class="strike-row">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong style="font-size:16px;">{row['strike']}</strong><br/>
+                <span class="sub-text">{row['ce_pe_vol']}</span>
+            </div>
+            <div>
+                <span class="{badge_cls}">{row['signal']}</span>
+                <span class="sub-text" style="margin-left:5px;">{row['state']}</span>
+            </div>
+        </div>
+        <hr style="margin: 6px 0; border: 0; border-top: 1px solid #eee;"/>
+        <div style="display: flex; justify-content: space-between;">
+            <div>
+                <span class="sub-text">NEUTRALIZED FLOW</span><br/>
+                <span class="{neut_color}">{row['neut_flow']}</span><br/>
+                <span class="sub-text">{row['dir_opp']}</span>
+            </div>
+            <div style="text-align: right;">
+                <span class="sub-text">SELLER NET</span><br/>
+                <span class="{neut_color}">{row['seller_net']}</span><br/>
+                <span class="sub-text">{row['net_detail']}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
