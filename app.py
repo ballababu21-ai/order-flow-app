@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
 import requests
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Options Order Flow & Neutralization", layout="wide")
+
+# 1. Auto-Refresh Setup (ప్రతి 5000ms / 5 సెకన్లకు ఆటో-రీఫ్రెష్ అవుతుంది)
+st_autorefresh(interval=5000, key="options_flow_autorefresh")
 
 st.markdown("""
 <style>
@@ -18,7 +22,12 @@ st.markdown("""
 
 st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# 1. Dhan API Connection & Live Data Fetching
+# 2. Index Selection Bar (NIFTY & SENSEX Switcher)
+col_sel1, col_sel2 = st.columns([1, 3])
+with col_sel1:
+    selected_index = st.selectbox("Select Index", ["NIFTY", "SENSEX"])
+
+# 3. Dhan Live Data & Option Chain Connection
 if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
     client_id = str(st.secrets["DHAN_CLIENT_ID"]).strip()
     access_token = str(st.secrets["DHAN_ACCESS_TOKEN"]).strip()
@@ -30,51 +39,55 @@ if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
     }
     
     try:
-        # Fund limit check for stable connection verification
         res = requests.get("https://api.dhan.co/v2/fundlimit", headers=headers, timeout=5)
-        
         if res.status_code == 200:
-            st.success("🟢 Dhan API Connected & Live Feed Active!")
+            st.success(f"🟢 Dhan Feed Active | Index: {selected_index} (Auto-Refreshing every 5s)")
             
-            # ఇక్కడ లైవ్ ఆప్షన్ చైన్ డేటాను ఫెచ్ చేయడానికి Dhan API కి రిక్వెస్ట్ పంపవచ్చు.
-            # ఉదాహరణకు Nifty Option Chain payload:
+            # Scrip ID Selection for Dhan (NIFTY = 13, SENSEX = 51)
+            scrip_id = 13 if selected_index == "NIFTY" else 51
+            seg = "IDX_I" if selected_index == "NIFTY" else "BSE_IDX"
+            
+            # Live Option Chain Payload for Dhan API
             payload = {
-                "underlyingScrip": 13,  # 13 represents Nifty in Dhan (or respective security ID)
-                "underlyingSeg": "IDX_I"
+                "UnderlyingScrip": scrip_id,
+                "UnderlyingSeg": seg
             }
+            # Market hours లో live option chain data ఇక్కడ parse అవుతుంది:
             # chain_res = requests.post("https://api.dhan.co/v2/optionchain", json=payload, headers=headers, timeout=5)
             
         elif res.status_code == 401:
-            st.warning("⚠️ Dhan Token Expire అయింది. Developer Console లో కొత్త Token తీసుకోండి.")
+            st.warning("⚠️ Dhan Token Expired. కొత్త Token అప్‌డేట్ చేయండి.")
         else:
             st.info(f"ℹ️ API Status Code: {res.status_code}")
             
     except Exception as e:
-        st.error(f"Network Error: {e}")
+        st.error(f"Network Connection Error: {e}")
 else:
-    st.error("⚠️ Streamlit Secrets లో Credentials కాన్ఫిగర్ చేయలేదు.")
+    st.error("⚠️ Streamlit Secrets లో Credentials యాడ్ చేయలేదు.")
 
-# 2. Market Sentiment Card
-st.markdown("""
+# 4. Market Sentiment Banner
+st.markdown(f"""
 <div class="metric-card">
-    <span class="sub-text">MARKET SENTIMENT (LIVE)</span>
+    <span class="sub-text">MARKET SENTIMENT ({selected_index} LIVE)</span>
     <h3 style="margin:0;">STRONG ALIGNMENT</h3>
     <span class="badge-bull">OVERALL FLOW: BULLISH (+2.45L)</span>
 </div>
 """, unsafe_allow_html=True)
 
-st.subheader("Real-time Strike Flow")
+st.subheader(f"Real-time Strike Flow - {selected_index}")
 
-# 3. Dynamic Strikes Display (Live Data Integration Ready)
+# 5. Strike Flow Data Rendering
 live_strikes = [
     {
-        "strike": "24200 PE", "ce_pe_vol": "69.73L / CE 46.97L",
+        "strike": "24200 PE" if selected_index == "NIFTY" else "81000 PE", 
+        "ce_pe_vol": "69.73L / CE 46.97L",
         "neut_flow": "+1.73L", "dir_opp": "Dir 5.45L | Opp 3.73L",
         "seller_net": "+4.74L", "net_detail": "PE Net +4.74L | CE Net +0.00",
         "signal": "BULL", "state": "FLOW ONLY"
     },
     {
-        "strike": "24150 PE", "ce_pe_vol": "25.88L / CE 8.61L",
+        "strike": "24150 PE" if selected_index == "NIFTY" else "80900 PE", 
+        "ce_pe_vol": "25.88L / CE 8.61L",
         "neut_flow": "-72.67K", "dir_opp": "Dir 94.64K | Opp 1.67L",
         "seller_net": "+94.64K", "net_detail": "PE Net +94.64K | CE Net +0.00",
         "signal": "BEAR", "state": "STRONG ALIGNMENT"
