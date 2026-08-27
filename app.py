@@ -1,14 +1,22 @@
 import streamlit as st
 import pandas as pd
-from dhanhq import dhanhq
 from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Options Order Flow", layout="wide")
 
-# 5 సెకన్లకు ఒకసారి ఆటో-రిఫ్రెష్
 st_autorefresh(interval=5000, key="data_refresh")
 
-# CSS Dashboard Styling
+# DhanHQ Import Safe Handling
+dhanhq_available = False
+dhan = None
+
+try:
+    from dhanhq import dhanhq
+    dhanhq_available = True
+except ImportError:
+    st.warning("⚠️ `dhanhq` library install avvutోంది. దయచేసి Manage App -> Reboot క్లిక్ చేయండి.")
+
+# CSS Styling
 st.markdown("""
 <style>
     .metric-card {
@@ -25,26 +33,9 @@ st.markdown("""
         padding: 10px;
         margin-bottom: 8px;
     }
-    .badge-bull {
-        background-color: #d4edda;
-        color: #155724;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 12px;
-    }
-    .badge-bear {
-        background-color: #f8d7da;
-        color: #721c24;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-weight: bold;
-        font-size: 12px;
-    }
-    .sub-text {
-        font-size: 11px;
-        color: #6c757d;
-    }
+    .badge-bull { background-color: #d4edda; color: #155724; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; }
+    .badge-bear { background-color: #f8d7da; color: #721c24; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; }
+    .sub-text { font-size: 11px; color: #6c757d; }
     .green-text { color: #28a745; font-weight: 600; }
     .red-text { color: #dc3545; font-weight: 600; }
 </style>
@@ -52,19 +43,20 @@ st.markdown("""
 
 st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# Dhan API Connection Verification
-try:
-    CLIENT_ID = st.secrets["DHAN_CLIENT_ID"]
-    ACCESS_TOKEN = st.secrets["DHAN_ACCESS_TOKEN"]
-    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
-    
-    fund_limits = dhan.get_fund_limits()
-    if fund_limits.get('status') == 'success':
-        st.success("✅ Dhan API Connected Successfully!")
-    else:
-        st.warning("⚠️ Dhan API Credentials సరిగ్గా లేవు, నిశితంగా సరిచూసుకోండి.")
-except Exception as e:
-    st.error(f"⚠️ Secrets Error: Streamlit Secrets లో Key వివరాలు యాడ్ చేశారో లేదో చూడండి. ({e})")
+# API Connection logic
+if dhanhq_available:
+    try:
+        CLIENT_ID = st.secrets["DHAN_CLIENT_ID"]
+        ACCESS_TOKEN = st.secrets["DHAN_ACCESS_TOKEN"]
+        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+        
+        fund_limits = dhan.get_fund_limits()
+        if fund_limits.get('status') == 'success':
+            st.success("✅ Dhan API Connected Successfully!")
+        else:
+            st.warning("⚠️ Dhan Credentials సరిగ్గా లేవు.")
+    except Exception as e:
+        st.info("ℹ️ Secrets Check: Dhan Credentials secrets లో యాడ్ చేయండి.")
 
 # Top Summary Card
 st.markdown("""
@@ -77,7 +69,6 @@ st.markdown("""
 
 st.subheader("Real-time Strike Flow")
 
-# Temporary Display Data (Dhan API Stream Setup కి పూర్వం)
 strikes = [
     {
         "strike": "24200 PE", "ce_pe_vol": "69.73L / CE 46.97L",
