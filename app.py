@@ -1,12 +1,8 @@
 import streamlit as st
 import pandas as pd
 import requests
-from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Options Order Flow & Neutralization", layout="wide")
-
-# 1. Auto-Refresh Setup (ప్రతి 5000ms / 5 సెకన్లకు ఆటో-రీఫ్రెష్ అవుతుంది)
-st_autorefresh(interval=5000, key="options_flow_autorefresh")
 
 st.markdown("""
 <style>
@@ -22,12 +18,12 @@ st.markdown("""
 
 st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# 2. Index Selection Bar (NIFTY & SENSEX Switcher)
+# Index Switcher (NIFTY / SENSEX)
 col_sel1, col_sel2 = st.columns([1, 3])
 with col_sel1:
     selected_index = st.selectbox("Select Index", ["NIFTY", "SENSEX"])
 
-# 3. Dhan Live Data & Option Chain Connection
+# Dhan API Connection Check
 if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
     client_id = str(st.secrets["DHAN_CLIENT_ID"]).strip()
     access_token = str(st.secrets["DHAN_ACCESS_TOKEN"]).strip()
@@ -41,31 +37,17 @@ if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
     try:
         res = requests.get("https://api.dhan.co/v2/fundlimit", headers=headers, timeout=5)
         if res.status_code == 200:
-            st.success(f"🟢 Dhan Feed Active | Index: {selected_index} (Auto-Refreshing every 5s)")
-            
-            # Scrip ID Selection for Dhan (NIFTY = 13, SENSEX = 51)
-            scrip_id = 13 if selected_index == "NIFTY" else 51
-            seg = "IDX_I" if selected_index == "NIFTY" else "BSE_IDX"
-            
-            # Live Option Chain Payload for Dhan API
-            payload = {
-                "UnderlyingScrip": scrip_id,
-                "UnderlyingSeg": seg
-            }
-            # Market hours లో live option chain data ఇక్కడ parse అవుతుంది:
-            # chain_res = requests.post("https://api.dhan.co/v2/optionchain", json=payload, headers=headers, timeout=5)
-            
+            st.success(f"🟢 Dhan Feed Active | Selected Index: {selected_index}")
         elif res.status_code == 401:
             st.warning("⚠️ Dhan Token Expired. కొత్త Token అప్‌డేట్ చేయండి.")
         else:
-            st.info(f"ℹ️ API Status Code: {res.status_code}")
-            
+            st.info(f"ℹ️ Status Code: {res.status_code}")
     except Exception as e:
-        st.error(f"Network Connection Error: {e}")
+        st.error(f"Network Error: {e}")
 else:
-    st.error("⚠️ Streamlit Secrets లో Credentials యాడ్ చేయలేదు.")
+    st.error("⚠️ Secrets లో Credentials కాన్ఫిగర్ చేయలేదు.")
 
-# 4. Market Sentiment Banner
+# Market Sentiment Overview
 st.markdown(f"""
 <div class="metric-card">
     <span class="sub-text">MARKET SENTIMENT ({selected_index} LIVE)</span>
@@ -76,7 +58,6 @@ st.markdown(f"""
 
 st.subheader(f"Real-time Strike Flow - {selected_index}")
 
-# 5. Strike Flow Data Rendering
 live_strikes = [
     {
         "strike": "24200 PE" if selected_index == "NIFTY" else "81000 PE", 
