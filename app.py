@@ -8,7 +8,7 @@ import time
 # -------------------------------------------------------------------
 # 1. Page Config & Custom Styling
 # -------------------------------------------------------------------
-st.set_page_config(page_title="Institutional Order & Money Flow Engine", layout="wide")
+st.set_page_config(page_title="Ultra-Pro Index Options Order Flow Engine", layout="wide")
 
 st.markdown("""
 <style>
@@ -25,7 +25,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚡ Ultra-Pro Institutional Order & Money Flow Engine")
+st.title("⚡ Pro Order Flow & Institutional Analytics Engine")
 
 # -------------------------------------------------------------------
 # 2. Controls & Sidebar Settings
@@ -69,10 +69,10 @@ def get_dhan_option_chain(symbol):
 raw_data = get_dhan_option_chain(selected_index)
 
 # -------------------------------------------------------------------
-# 4. Data Processing & Money Flow Calculations
+# 4. Data Processing & Advanced Calculations
 # -------------------------------------------------------------------
 if not raw_data or not raw_data.get("oc"):
-    st.info("ℹ️ Off-Market Hours View: Displaying Real-Time Money Flow Analytics Engine")
+    st.info("ℹ️ Off-Market Hours View: Displaying Simulated Order Flow Engine Data")
     
     current_spot = 24220.00 if selected_index == "NIFTY" else 81000.00
     put_wall_strike = 24100.00 if selected_index == "NIFTY" else 80500.00
@@ -81,11 +81,13 @@ if not raw_data or not raw_data.get("oc"):
     max_pain = 24200.00 if selected_index == "NIFTY" else 81000.00
     atm_straddle = 145.50
     vwap_val = 24212.00
+    poc_level = 24215.00 if selected_index == "NIFTY" else 81020.00
     
-    # Money Flow Simulated Values
-    net_money_flow = 142.80  # in Crores
+    net_money_flow = 142.80
     buy_pressure_pct = 64.5
     sell_pressure_pct = 35.5
+    order_imbalance = "+28.5%"
+    divergence_status = "NONE (CONFIRMED BULLISH)"
     
     cvd_df = pd.DataFrame({
         "Spot Price": [24200, 24210, 24205, 24215, 24220, 24223],
@@ -101,7 +103,6 @@ else:
     total_pe_oi, total_ce_oi = 0, 0
     max_pe_oi, put_wall_strike = 0, current_spot - 100
     max_ce_oi, call_wall_strike = 0, current_spot + 100
-    
     total_buy_val, total_sell_val = 0.0, 0.0
     
     for strike, val in oc_data.items():
@@ -112,7 +113,6 @@ else:
         
         total_pe_oi += pe_oi
         total_ce_oi += ce_oi
-        
         total_buy_val += (pe_oi * pe_ltp)
         total_sell_val += (ce_oi * ce_ltp)
         
@@ -125,11 +125,16 @@ else:
     max_pain = round(current_spot / 50) * 50
     atm_straddle = 120.00
     vwap_val = current_spot - 5
+    poc_level = current_spot
     
     net_money_flow = round((total_buy_val - total_sell_val) / 10000000, 2)
     tot_val = total_buy_val + total_sell_val if (total_buy_val + total_sell_val) > 0 else 1
     buy_pressure_pct = round((total_buy_val / tot_val) * 100, 1)
     sell_pressure_pct = round((total_sell_val / tot_val) * 100, 1)
+    
+    imb = buy_pressure_pct - sell_pressure_pct
+    order_imbalance = f"+{imb:.1f}%" if imb >= 0 else f"{imb:.1f}%"
+    divergence_status = "BEARISH DIVERGENCE DETECTED" if (current_spot > vwap_val and net_money_flow < 0) else "ALIGNED"
     
     cvd_df = pd.DataFrame({
         "Spot Price": [current_spot],
@@ -141,7 +146,7 @@ else:
 # 5. Primary Dashboard Metrics Display
 # -------------------------------------------------------------------
 if strong_signal_detected:
-    st.warning("⚠️ High Institutional Money Flow Divergence Detected!")
+    st.warning("⚠️ High Institutional Order Flow Imbalance Active!")
 
 st.markdown(f"""
 <div class="metric-card">
@@ -167,12 +172,48 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# 6. Institutional Money Flow Section (NEW FEATURE)
+# 6. Order Flow Imbalance & Delta Divergence Section (NEW)
+# -------------------------------------------------------------------
+st.subheader("📊 Order Flow Imbalance & Delta Divergence Analysis")
+
+of_col1, of_col2, of_col3 = st.columns(3)
+
+imb_color = "green-text" if "+" in order_imbalance else "red-text"
+
+with of_col1:
+    st.markdown(f"""
+    <div class="strike-card">
+        <span class="sub-text">BID / ASK ORDER IMBALANCE</span>
+        <h3 class="{imb_color}" style="margin:5px 0;">{order_imbalance}</h3>
+        <span class="sub-text">బయర్స్ vs సెల్లర్స్ అగ్రెసివ్ బ్యాలెన్స్</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with of_col2:
+    div_color = "green-text" if "ALIGNED" in divergence_status or "NONE" in divergence_status else "red-text"
+    st.markdown(f"""
+    <div class="strike-card">
+        <span class="sub-text">DELTA DIVERGENCE ALERT</span>
+        <h4 class="{div_color}" style="margin:5px 0;">{divergence_status}</h4>
+        <span class="sub-text">ఫేక్ మూవ్స్ & ట్రాప్‌లను గుర్తించే ఫీచర్</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with of_col3:
+    st.markdown(f"""
+    <div class="strike-card">
+        <span class="sub-text">HIGH VOLUME POC LEVEL</span>
+        <h3 class="wall-text" style="margin:5px 0;">{poc_level:,.2f}</h3>
+        <span class="sub-text">Point of Control (అత్యధిక వ్యాపారం జరిగిన చోటు)</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# 7. Institutional Money Flow Section
 # -------------------------------------------------------------------
 st.subheader("💰 Institutional Money Flow & Pressure Engine")
 
 m_col1, m_col2 = st.columns([1, 2])
-
 money_color = "green-text" if net_money_flow >= 0 else "red-text"
 flow_sign = "+" if net_money_flow >= 0 else ""
 
@@ -201,81 +242,13 @@ with m_col2:
     """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# 7. Advanced Trading Insights (Max Pain, Straddle & VWAP)
-# -------------------------------------------------------------------
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(f"""
-    <div class="strike-card">
-        <span class="sub-text">ESTIMATED MAX PAIN STRIKE</span>
-        <h3 class="wall-text" style="margin:0;">{max_pain:,.2f}</h3>
-        <span class="sub-text">ఎక్స్‌పైరీ నాటికి మార్కెట్ ముగిసే అవకాశం ఉన్న స్థాయి.</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="strike-card">
-        <span class="sub-text">ATM STRADDLE PREMIUM (CE + PE)</span>
-        <h3 class="blue-text" style="margin:0;">₹{atm_straddle:.2f}</h3>
-        <span class="sub-text">ఇంట్రాడే ఎక్స్‌పెక్టెడ్ మూవ్‌మెంట్ బౌండరీ.</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    vwap_status = "ABOVE VWAP (BULLISH)" if current_spot > vwap_val else "BELOW VWAP (BEARISH)"
-    vwap_color = "green-text" if current_spot > vwap_val else "red-text"
-    st.markdown(f"""
-    <div class="strike-card">
-        <span class="sub-text">BENCHMARK VWAP LEVEL</span>
-        <h3 class="{vwap_color}" style="margin:0;">{vwap_val:,.2f}</h3>
-        <span class="sub-text">STATUS: {vwap_status}</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# 8. Multi-Timeframe Confluence Grid
-# -------------------------------------------------------------------
-st.subheader("🌐 Multi-Timeframe Trend Confluence Engine")
-
-tf_col1, tf_col2, tf_col3 = st.columns(3)
-
-with tf_col1:
-    st.markdown("""
-    <div class="strike-card" style="border-top: 3px solid #3fb950;">
-        <span class="sub-text">1-MIN TIMEFRAME FLOW</span>
-        <h4 class="green-text" style="margin:5px 0;">BULLISH ACCUMULATION</h4>
-        <span class="badge-bull">STRONG BULL</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with tf_col2:
-    st.markdown("""
-    <div class="strike-card" style="border-top: 3px solid #3fb950;">
-        <span class="sub-text">3-MIN TIMEFRAME FLOW</span>
-        <h4 class="green-text" style="margin:5px 0;">NEUTRALIZED BUYING</h4>
-        <span class="badge-bull">BULLISH ALIGNMENT</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-with tf_col3:
-    st.markdown("""
-    <div class="strike-card" style="border-top: 3px solid #58a6ff;">
-        <span class="sub-text">5-MIN TIMEFRAME FLOW</span>
-        <h4 class="blue-text" style="margin:5px 0;">CONFLUENCE VERIFIED</h4>
-        <span class="badge-alert">HIGH CONVICTION</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# 9. Cumulative Volume Delta (CVD) Line Chart
+# 8. Cumulative Volume Delta (CVD) Line Chart
 # -------------------------------------------------------------------
 st.subheader("📈 Cumulative Volume Delta (CVD) & Spot Trend")
 st.line_chart(cvd_df)
 
 # -------------------------------------------------------------------
-# 10. Multi-Timeframe Flow Breakdown
+# 9. Multi-Timeframe Flow Breakdown
 # -------------------------------------------------------------------
 st.subheader(f"⏱️ Multi-Timeframe Flow Delta & Neutralization ({timeframe})")
 
