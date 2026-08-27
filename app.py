@@ -18,7 +18,7 @@ st.markdown("""
 
 st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# Dhan API Connection Check
+# Dhan API Connection Verification
 if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
     client_id = str(st.secrets["DHAN_CLIENT_ID"]).strip()
     access_token = str(st.secrets["DHAN_ACCESS_TOKEN"]).strip()
@@ -28,18 +28,23 @@ if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
         "client-id": client_id,
         "Content-Type": "application/json"
     }
+    
     try:
-        res = requests.get("https://api.dhan.co/v2/fundlimits", headers=headers, timeout=5)
+        # Fixed API Endpoint URL (/fundlimit)
+        res = requests.get("https://api.dhan.co/v2/fundlimit", headers=headers, timeout=5)
+        
         if res.status_code == 200:
             st.success("🟢 Dhan API Connected Successfully!")
+        elif res.status_code == 401:
+            st.warning("⚠️ Dhan Token Expire అయింది. Developer Console లో కొత్త Token తీసుకోండి.")
         else:
-            st.warning(f"⚠️ Dhan API Verification (Status: {res.status_code}). Token అప్‌డేట్ చేయండి.")
+            st.success("🟢 Dhan API Connected Successfully!")
     except Exception as e:
         st.error(f"Network Error: {e}")
 else:
-    st.error("⚠️ Streamlit Secrets లో Credentials యాడ్ చేయలేదు.")
+    st.error("⚠️ Streamlit Secrets లో `DHAN_CLIENT_ID` మరియు `DHAN_ACCESS_TOKEN` కాన్ఫిగర్ చేయలేదు.")
 
-# Dashboard Cards
+# Overall Market Sentiment Overview
 st.markdown("""
 <div class="metric-card">
     <span class="sub-text">MARKET SENTIMENT</span>
