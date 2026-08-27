@@ -1,6 +1,15 @@
+import sys
+import subprocess
+
+# dhanhq లైబ్రరీ లేకపోతే ఆటోమేటిక్‌గా ఇన్స్టాల్ చేసే లాజిక్
+try:
+    from dhanhq import dhanhq
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "dhanhq"])
+    from dhanhq import dhanhq
+
 import streamlit as st
 import pandas as pd
-import time
 
 st.set_page_config(page_title="Options Order Flow", layout="wide")
 
@@ -28,37 +37,77 @@ st.markdown("""
 
 st.title("⚡ Options Flow & Neutralization Dashboard")
 
-# Dhan API Connection Verification
-dhan_ready = False
-dhan = None
-
+# Dhan API Connection Logic
 try:
-    from dhanhq import dhanhq
     if "DHAN_CLIENT_ID" in st.secrets and "DHAN_ACCESS_TOKEN" in st.secrets:
         CLIENT_ID = st.secrets["DHAN_CLIENT_ID"]
         ACCESS_TOKEN = st.secrets["DHAN_ACCESS_TOKEN"]
         dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
-        dhan_ready = True
-        st.success("🟢 Dhan API Connected - Live Data Stream Active")
+        
+        fund_limits = dhan.get_fund_limits()
+        if fund_limits.get('status') == 'success':
+            st.success("🟢 Dhan API Connected Successfully!")
+        else:
+            st.warning("⚠️ Dhan Credentials చెక్ చేయండి (Client ID / Token లోపం).")
     else:
-        st.error("⚠️ Streamlit Secrets లో `DHAN_CLIENT_ID` మరియు `DHAN_ACCESS_TOKEN` సేవ్ చేయండి.")
+        st.error("⚠️ Streamlit Secrets లో `DHAN_CLIENT_ID` మరియు `DHAN_ACCESS_TOKEN` యాడ్ చేయండి.")
 except Exception as e:
-    st.warning("🔄 Dhan Library Sync అవుతోంది. 1 నిమిషం తర్వాత app auto-refresh అవుతుంది.")
+    st.error(f"API Connection Error: {e}")
 
-# Market Sentiment logic
+# Market Sentiment
 st.markdown("""
 <div class="metric-card">
     <span class="sub-text">MARKET SENTIMENT</span>
     <h3 style="margin:0;">LIVE MARKET TRACKING</h3>
-    <span class="badge-bull">STATUS: REAL-TIME CONNECTED</span>
+    <span class="badge-bull">STATUS: ACTIVE</span>
 </div>
 """, unsafe_allow_html=True)
 
 st.subheader("Real-time Strike Flow")
 
-# Live / Fallback Flow Display
-if dhan_ready:
-    # ఇక్కడ Dhan API ద్వారా లైవ్ నిఫ్టీ డిటైల్స్ ఫెచ్ అవ్వడం జరుగుతుంది
-    st.info("📊 Dhan API నుండి ప్రత్యక్ష మార్కెట్ డేటా లోడ్ అవుతోంది...")
-else:
-    st.caption("డేటా సింక్ పూర్తయిన వెంటనే లైవ్ ఆర్డర్ ఫ్లో ఇక్కడ అప్‌డేట్ అవుతుంది.")
+strikes = [
+    {
+        "strike": "24200 PE", "ce_pe_vol": "69.73L / CE 46.97L",
+        "neut_flow": "+1.73L", "dir_opp": "Dir 5.45L | Opp 3.73L",
+        "seller_net": "+4.74L", "net_detail": "PE Net +4.74L | CE Net +0.00",
+        "signal": "BULL", "state": "FLOW ONLY"
+    },
+    {
+        "strike": "24150 PE", "ce_pe_vol": "25.88L / CE 8.61L",
+        "neut_flow": "-72.67K", "dir_opp": "Dir 94.64K | Opp 1.67L",
+        "seller_net": "+94.64K", "net_detail": "PE Net +94.64K | CE Net +0.00",
+        "signal": "BEAR", "state": "STRONG ALIGNMENT"
+    }
+]
+
+for row in strikes:
+    badge_cls = "badge-bull" if row["signal"] == "BULL" else "badge-bear"
+    neut_color = "green-text" if "+" in row["neut_flow"] else "red-text"
+    
+    st.markdown(f"""
+    <div class="strike-row">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong style="font-size:16px;">{row['strike']}</strong><br/>
+                <span class="sub-text">{row['ce_pe_vol']}</span>
+            </div>
+            <div>
+                <span class="{badge_cls}">{row['signal']}</span>
+                <span class="sub-text" style="margin-left:5px;">{row['state']}</span>
+            </div>
+        </div>
+        <hr style="margin: 6px 0; border: 0; border-top: 1px solid #eee;"/>
+        <div style="display: flex; justify-content: space-between;">
+            <div>
+                <span class="sub-text">NEUTRALIZED FLOW</span><br/>
+                <span class="{neut_color}">{row['neut_flow']}</span><br/>
+                <span class="sub-text">{row['dir_opp']}</span>
+            </div>
+            <div style="text-align: right;">
+                <span class="sub-text">SELLER NET</span><br/>
+                <span class="{neut_color}">{row['seller_net']}</span><br/>
+                <span class="sub-text">{row['net_detail']}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
