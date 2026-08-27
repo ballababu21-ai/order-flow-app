@@ -1,22 +1,28 @@
 import streamlit as st
 import pandas as pd
-from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(page_title="Options Order Flow", layout="wide")
 
-st_autorefresh(interval=5000, key="data_refresh")
+# Autorefresh without needing extra packages
+st.components.v1.html("""
+    <script>
+        setTimeout(function(){
+            window.parent.postMessage({type: 'streamlit:render'}, '*');
+        }, 5000);
+    </script>
+""", height=0)
 
-# DhanHQ Import Safe Handling
+# DhanHQ Safe Import (App crash avvakunda untundhi)
 dhanhq_available = False
 dhan = None
 
 try:
     from dhanhq import dhanhq
     dhanhq_available = True
-except ImportError:
-    st.warning("⚠️ `dhanhq` library install avvutోంది. దయచేసి Manage App -> Reboot క్లిక్ చేయండి.")
+except Exception:
+    dhanhq_available = False
 
-# CSS Styling
+# Dashboard CSS Styling
 st.markdown("""
 <style>
     .metric-card {
@@ -54,9 +60,11 @@ if dhanhq_available:
         if fund_limits.get('status') == 'success':
             st.success("✅ Dhan API Connected Successfully!")
         else:
-            st.warning("⚠️ Dhan Credentials సరిగ్గా లేవు.")
+            st.warning("⚠️ Dhan Credentials check cheyandi.")
     except Exception as e:
-        st.info("ℹ️ Secrets Check: Dhan Credentials secrets లో యాడ్ చేయండి.")
+        st.info("ℹ️ Secrets check cheyandi: Dhan Secrets missing.")
+else:
+    st.info("ℹ️ DhanHQ setup load avthondhi.")
 
 # Top Summary Card
 st.markdown("""
