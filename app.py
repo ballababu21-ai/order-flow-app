@@ -52,18 +52,30 @@ access_token = str(st.secrets["DHAN_ACCESS_TOKEN"]).strip()
 headers = {"access-token": access_token, "client-id": client_id, "Content-Type": "application/json"}
 
 # -------------------------------------------------------------------
-# 3. Dhan Live Data Fetching
+# 3. Dhan Live Data Fetching (Updated for Sensex Compatibility)
 # -------------------------------------------------------------------
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=3)
 def get_dhan_option_chain(symbol):
+    # Nifty Scrip: 13 (IDX_I), Sensex Scrip: 51 / 1 (BSE_IDX / BSE_FNO)
     scrip_id = 13 if symbol == "NIFTY" else 51
     exch_seg = "IDX_I" if symbol == "NIFTY" else "BSE_IDX"
+    
     url = "https://api.dhan.co/v2/optionchain"
     payload = {"UnderlyingScrip": scrip_id, "UnderlyingSeg": exch_seg}
+    
     try:
         res = requests.post(url, json=payload, headers=headers, timeout=5)
-        return res.json().get("data", {}) if res.status_code == 200 else None
-    except Exception:
+        if res.status_code == 200:
+            data = res.json().get("data", {})
+            # If Sensex with ID 51 fails, try alternative Dhan BSE ID (1)
+            if symbol == "SENSEX" and (not data or not data.get("oc")):
+                payload_alt = {"UnderlyingScrip": 1, "UnderlyingSeg": "BSE_FNO"}
+                res_alt = requests.post(url, json=payload_alt, headers=headers, timeout=5)
+                if res_alt.status_code == 200:
+                    return res_alt.json().get("data", {})
+            return data
+        return None
+    except Exception as e:
         return None
 
 raw_data = get_dhan_option_chain(selected_index)
@@ -72,7 +84,7 @@ raw_data = get_dhan_option_chain(selected_index)
 # 4. Data Processing & Advanced Calculations
 # -------------------------------------------------------------------
 if not raw_data or not raw_data.get("oc"):
-    st.info("ℹ️ Off-Market Hours View: Displaying Simulated Order Flow Engine Data")
+    st.warning(f"⚠️ {selected_index} Live Feed రాలేదు / Off-Market Hours. (Simulation Engine Active)")
     
     current_spot = 24220.00 if selected_index == "NIFTY" else 81000.00
     put_wall_strike = 24100.00 if selected_index == "NIFTY" else 80500.00
@@ -80,8 +92,8 @@ if not raw_data or not raw_data.get("oc"):
     pcr_value = 1.15
     max_pain = 24200.00 if selected_index == "NIFTY" else 81000.00
     atm_straddle = 145.50
-    vwap_val = 24212.00
-    poc_level = 24215.00 if selected_index == "NIFTY" else 81020.00
+    vwap_val = current_spot - 8
+    poc_level = current_spot + 5
     
     net_money_flow = 142.80
     buy_pressure_pct = 64.5
@@ -90,7 +102,7 @@ if not raw_data or not raw_data.get("oc"):
     divergence_status = "NONE (CONFIRMED BULLISH)"
     
     cvd_df = pd.DataFrame({
-        "Spot Price": [24200, 24210, 24205, 24215, 24220, 24223],
+        "Spot Price": [current_spot-20, current_spot-10, current_spot-15, current_spot-5, current_spot, current_spot+3],
         "CVD Flow": [-1500, -800, 200, 1200, 2800, 4500]
     }, index=["12:40", "12:41", "12:42", "12:43", "12:44", "12:45"])
     
@@ -98,7 +110,7 @@ if not raw_data or not raw_data.get("oc"):
 else:
     st.success(f"🟢 Live Dhan Feed Active | Index: {selected_index}")
     oc_data = raw_data.get("oc", {})
-    current_spot = raw_data.get("last_price", 24200.00)
+    current_spot = raw_data.get("last_price", 81000.00 if selected_index == "SENSEX" else 24200.00)
     
     total_pe_oi, total_ce_oi = 0, 0
     max_pe_oi, put_wall_strike = 0, current_spot - 100
@@ -122,7 +134,8 @@ else:
             max_ce_oi, call_wall_strike = ce_oi, float(strike)
             
     pcr_value = round(total_pe_oi / total_ce_oi, 2) if total_ce_oi > 0 else 1.0
-    max_pain = round(current_spot / 50) * 50
+    step = 100 if selected_index == "SENSEX" else 50
+    max_pain = round(current_spot / step) * step
     atm_straddle = 120.00
     vwap_val = current_spot - 5
     poc_level = current_spot
@@ -146,13 +159,13 @@ else:
 # 5. Primary Dashboard Metrics Display
 # -------------------------------------------------------------------
 if strong_signal_detected:
-    st.warning("⚠️ High Institutional Order Flow Imbalance Active!")
+    st.info("💡 లైవ్ మార్కెట్ నిమిషాల్లో Dhan API ద్వారా Sensex డేటా ఆటోమేటిక్‌గా ఇక్కడ అప్‌డేట్ అవుతుంది.")
 
 st.markdown(f"""
 <div class="metric-card">
     <div style="display:flex; justify-content:space-between; flex-wrap:wrap;">
         <div>
-            <span class="sub-text">CURRENT SPOT PRICE</span>
+            <span class="sub-text">CURRENT SPOT PRICE ({selected_index})</span>
             <h2 style="margin:0;">{current_spot:,.2f}</h2>
         </div>
         <div>
@@ -172,12 +185,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# 6. Order Flow Imbalance & Delta Divergence Section (NEW)
+# 6. Order Flow Imbalance & Delta Divergence Section
 # -------------------------------------------------------------------
 st.subheader("📊 Order Flow Imbalance & Delta Divergence Analysis")
 
 of_col1, of_col2, of_col3 = st.columns(3)
-
 imb_color = "green-text" if "+" in order_imbalance else "red-text"
 
 with of_col1:
