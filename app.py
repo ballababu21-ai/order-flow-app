@@ -68,20 +68,17 @@ if not raw_data or not raw_data.get("oc"):
     put_wall_strike = 24100.00 if selected_index == "NIFTY" else 80500.00
     call_wall_strike = 24300.00 if selected_index == "NIFTY" else 81500.00
     
-    cvd_data = pd.DataFrame({
-        "Time": ["12:40", "12:41", "12:42", "12:43", "12:44", "12:45"],
-        "Spot_Price": [24200, 24210, 24205, 24215, 24220, 24223],
-        "CVD_Flow": [-1500, -800, +200, +1200, +2800, +4500]
-    })
+    cvd_df = pd.DataFrame({
+        "Spot Price": [24200, 24210, 24205, 24215, 24220, 24223],
+        "CVD Flow": [-1500, -800, 200, 1200, 2800, 4500]
+    }, index=["12:40", "12:41", "12:42", "12:43", "12:44", "12:45"])
     
     strong_signal_detected = True
 else:
     st.success(f"🟢 Live Dhan Feed Active | Index: {selected_index}")
-    # Live Processing Logic
     oc_data = raw_data.get("oc", {})
     current_spot = raw_data.get("last_price", 24200.00)
     
-    # Calculate Dynamic Gamma Walls (Max OI Strikes)
     max_pe_oi, put_wall_strike = 0, current_spot - 100
     max_ce_oi, call_wall_strike = 0, current_spot + 100
     
@@ -93,11 +90,10 @@ else:
         if ce_oi > max_ce_oi:
             max_ce_oi, call_wall_strike = ce_oi, float(strike)
             
-    cvd_data = pd.DataFrame({
-        "Time": [datetime.now().strftime("%H:%M")],
-        "Spot_Price": [current_spot],
-        "CVD_Flow": [max_pe_oi - max_ce_oi]
-    })
+    cvd_df = pd.DataFrame({
+        "Spot Price": [current_spot],
+        "CVD Flow": [max_pe_oi - max_ce_oi]
+    }, index=[datetime.now().strftime("%H:%M")])
     strong_signal_detected = False
 
 # -------------------------------------------------------------------
@@ -106,7 +102,6 @@ else:
 if strong_signal_detected:
     st.warning("⚠️ High Neutralized Flow Divergence Detected!")
 
-# Dynamic Support / Resistance Gamma Walls Banner
 st.markdown(f"""
 <div class="metric-card">
     <div style="display:flex; justify-content:space-between;">
@@ -131,26 +126,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------------------
-# 6. Cumulative Volume Delta (CVD) Line Chart & Divergence
+# 6. Cumulative Volume Delta (CVD) Built-in Line Chart
 # -------------------------------------------------------------------
-st.subheader("📈 Cumulative Volume Delta (CVD) vs Price Divergence")
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=cvd_data["Time"], y=cvd_data["Spot_Price"], name="Spot Price", line=dict(color="#58a6ff", width=2)))
-fig.add_trace(go.Scatter(x=cvd_data["Time"], y=cvd_data["CVD_Flow"], name="CVD Flow", yaxis="y2", line=dict(color="#3fb950", width=2, dash="dot")))
-
-fig.update_layout(
-    template="plotly_dark",
-    height=350,
-    margin=dict(l=20, r=20, t=20, b=20),
-    yaxis=dict(title="Spot Price"),
-    yaxis2=dict(title="CVD Order Flow", overlaying="y", side="right"),
-    legend=dict(orientation="h", y=1.1)
-)
-st.plotly_chart(fig, use_container_width=True)
+st.subheader("📈 Cumulative Volume Delta (CVD) & Spot Trend")
+st.line_chart(cvd_df)
 
 # -------------------------------------------------------------------
-# 7. Multi-Timeframe Flow & Minute Logging Breakdown
+# 7. Multi-Timeframe Flow Breakdown
 # -------------------------------------------------------------------
 st.subheader(f"⏱️ Multi-Timeframe Flow Delta & Neutralization ({timeframe})")
 
