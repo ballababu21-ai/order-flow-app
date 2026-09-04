@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import requests
 import time
 from datetime import datetime
+from dhanhq import dhanhq
 
 st.set_page_config(
     page_title="Pro Order Flow & Institutional Analytics",
@@ -65,89 +65,70 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Fetch Credentials and sanitize
-raw_client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
-raw_access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
+# Clean Credentials from Secrets
+client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
+access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
 
-def fetch_dhan_live_data(c_id, a_token):
+def fetch_dhan_sdk_data(c_id, a_token):
     if not c_id or not a_token:
-        return None, "Secrets లో DHAN_CLIENT_ID లేదా DHAN_ACCESS_TOKEN కనుగొనబడలేదు."
+        return None, "Secrets లో Client ID లేదా Access Token లేదు."
     
-    url = "https://api.dhan.co/v2/marketfeed/ltp"
-    
-    # Precise Headers
-    headers = {
-        "access-token": a_token,
-        "client-id": c_id,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-    
-    # Dhan LTP Payload format
-    payload = {
-        "NSE_IDX": [13],
-        "IDX_I": [13],
-        "NSE_INDEX": [13]
-    }
-
-    spot = 0.0
-    err_detail = ""
-
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=6)
+        # Initialize Official DhanHQ SDK Client
+        dhan = dhanhq(c_id, a_token)
         
-        if response.status_code == 200:
-            res_data = response.json()
-            if res_data.get('status') == 'success' and 'data' in res_data:
-                data_body = res_data['data']
-                for seg in ["NSE_IDX", "IDX_I", "NSE_INDEX"]:
-                    if seg in data_body and "13" in data_body[seg]:
-                        spot_val = data_body[seg]["13"].get("last_price", 0)
-                        if spot_val and float(spot_val) > 0:
-                            spot = float(spot_val)
-                            break
-                if spot == 0.0:
-                    err_detail = f"Dhan API రెస్పాన్స్ లైవ్ స్పాట్ ఇవ్వలేదు: {res_data}"
-            else:
-                err_detail = f"Dhan API Remarks: {res_data.get('remarks', res_data)}"
+        # Security ID 13 represents NIFTY 50 Index on NSE
+        # Fetch Intraday Daily OHLC/LTP Data via official SDK
+        res = dhan.get_historical_data(
+            symbol='NIFTY',
+            exchange_segment='INDEX_NSE',
+            instrument_type='INDEX',
+            expiry_code=0,
+            from_date=datetime.now().strftime('%Y-%m-%d'),
+            to_date=datetime.now().strftime('%Y-%m-%d')
+        )
+        
+        spot = 0.0
+        if isinstance(res, dict) and res.get('status') == 'success':
+            close_prices = res.get('data', {}).get('close', [])
+            if close_prices:
+                spot = float(close_prices[-1])
+        
+        if spot > 0:
+            return {
+                "is_live": True,
+                "spot": spot,
+                "vwap": round(spot - 8.5, 2),
+                "ema9": round(spot + 4.0, 2),
+                "ema21": round(spot - 6.0, 2),
+                "cvd": 1850,
+                "rsi": 62.4,
+                "call_wall": round(spot / 50) * 50 + 100,
+                "put_wall": round(spot / 50) * 50 - 100,
+                "pcr": 1.15
+            }, "🟢 Connected to Dhan HQ Live SDK Feed"
         else:
-            err_detail = f"HTTP Error {response.status_code}: {response.text}"
+            return None, f"Dhan Response: {res}"
             
     except Exception as e:
-        err_detail = f"Connection Failure: {str(e)}"
-
-    if spot > 0:
-        return {
-            "is_live": True,
-            "spot": spot,
-            "vwap": round(spot - 8.5, 2),
-            "ema9": round(spot + 4.0, 2),
-            "ema21": round(spot - 6.0, 2),
-            "cvd": 1850,
-            "rsi": 62.4,
-            "call_wall": round(spot / 50) * 50 + 100,
-            "put_wall": round(spot / 50) * 50 - 100,
-            "pcr": 1.15
-        }, "🟢 Connected to Dhan HQ Live API Feed"
-    else:
-        return None, err_detail
+        return None, f"SDK Exception: {str(e)}"
 
 # Sidebar
 st.sidebar.title("🔑 Dhan API Settings")
-st.sidebar.text_input("Dhan Client ID", value=raw_client_id, disabled=True)
+st.sidebar.text_input("Dhan Client ID", value=client_id, disabled=True)
 auto_refresh = st.sidebar.checkbox("⚡ Auto-Refresh Feed (5 sec)", value=False)
 
 # Header
 st.title("⚡ Pro Order Flow & Institutional Analytics Engine")
 
-live_data, status_msg = fetch_dhan_live_data(raw_client_id, raw_access_token)
+live_data, status_msg = fetch_dhan_sdk_data(client_id, access_token)
 
 if live_data and live_data["is_live"]:
     st.success(status_msg)
     market = live_data
 else:
-    st.error(f"❌ Dhan API Details: {status_msg}")
-    st.warning("⚠️ Live Feed రాలేదు / Simulation Engine నడుస్తోంది.")
+    st.error(f"❌ Dhan Connection Details: {status_msg}")
+    st.warning("⚠️ Live Feed రాలేదు / Simulation Engine రన్ అవుతోంది.")
     market = {
         "is_live": False, "spot": 24220.0, "vwap": 24210.0,
         "ema9": 24225.0, "ema21": 24205.0, "cvd": -1500,
@@ -157,7 +138,7 @@ else:
 
 st.markdown("---")
 
-# Main Dashboard Cards
+# Main Cards
 col1, col2 = st.columns(2)
 
 with col1:
@@ -180,7 +161,7 @@ with col2:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Secondary Market Metrics
+# Market Metrics
 c_a, c_b, c_c = st.columns(3)
 c_a.metric("DYNAMIC CALL WALL (RESISTANCE)", f"₹{market['call_wall']:,.2f}")
 c_b.metric("DYNAMIC PUT WALL (SUPPORT)", f"₹{market['put_wall']:,.2f}")
@@ -188,7 +169,7 @@ c_c.metric("PUT-CALL RATIO (PCR)", f"{market['pcr']}")
 
 st.markdown("---")
 
-# Visual Meter
+# Visual Indicator
 st.subheader("🤖 Neural Network Signal Confidence")
 score = 78
 
