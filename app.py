@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY Institutional Quant Engine (Ultimate 16-Tab)",
+    page_title="NIFTY Institutional Quant Engine (Clean 6-Tab)",
     page_icon="⚡",
     layout="wide"
 )
@@ -62,7 +62,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Helper functions using standard math
+# Helper functions
 def norm_pdf(x):
     return math.exp(-0.5 * x**2) / math.sqrt(2 * math.pi)
 
@@ -107,7 +107,7 @@ vah = atm_strike + 85
 val = atm_strike - 75
 val_migration = random.choice(["UPWARD MIGRATION (Bullish Accumulation)", "DOWNWARD MIGRATION (Bearish Distribution)", "BALANCED RANGE (Consolidation)"])
 
-st.title("⚡ NIFTY Institutional Quant Engine (Ultimate 16-Tab)")
+st.title("⚡ NIFTY Institutional Quant Engine")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
@@ -128,186 +128,136 @@ if is_explosion:
     </div>
     """, unsafe_allow_html=True)
 
-# 16 Tabs Structure
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13, tab14, tab15, tab16 = st.tabs([
-    "📊 Flow", "🎯 Strike", "📈 Fut/OI", "📍 POC", "⏳ MTF", "🏆 Win", 
-    "🔬 Pro", "⚡ IV", "🔮 GEX", "🚨 Trap", "🧬 Vanna/Charm", "📊 VAH/VAL",
-    "🚀 Higher Greeks", "🤖 AI Predictor", "🎯 Pain Shift", "🧱 DOM Wall"
+# 6 Clean Combined Tabs Structure
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📊 Flow & Prices", 
+    "📈 Market & POC", 
+    "🎯 Pro & Win", 
+    "🔮 GEX, Traps & DOM", 
+    "🧬 Greeks & AI", 
+    "🎯 Settlement & Pain"
 ])
 
 with tab1:
-    st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
-    for i in range(4):
+    st.subheader("⏱️ Live Order Flow, Strike Imbalance & Futures OI")
+    
+    # Futures & OI Status Box
+    oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
+    st.markdown(f"""
+    <div style="background:#161B22; padding:12px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
+        <p style="margin:0 0 4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | OI Status: <span class="{oi_badge_class}">{current_oi_status}</span></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("#### Strike Imbalance Matrix")
+    strikes = [atm_strike + (i * 50) for i in range(-3, 4)]
+    strike_rows = [{"Strike": s, "CE Vol": f"{random.randint(10, 80)}L", "PE Vol": f"{random.randint(10, 80)}L", "Ratio": round(random.uniform(0.6, 1.8), 2)} for s in strikes]
+    st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("#### Recent Order Flows")
+    for i in range(2):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + random.uniform(-4, 4), 2)
         is_bull = (i % 2 != 0)
         box_class = "row-bull-box" if is_bull else "row-bear-box"
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
-        state_text = random.choice(["STRONG ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE"])
-        ce_val = round(random.uniform(10, 90), 1)
-        pe_val = round(random.uniform(10, 90), 1)
         st.markdown(f"""
         <div class="{box_class}">
             <div style="display: flex; justify-content: space-between;">
                 <strong>{t_str} (₹{s_price})</strong> {side_badge}
             </div>
-            <div style="font-size: 12px; margin-top:4px; color: #8B949E;">State: <strong>{state_text}</strong></div>
-            <div style="font-size: 12px; margin-top:2px;">Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'} ({ce_val}Cr / PE {pe_val}Cr)</strong></div>
+            <div style="font-size: 12px; margin-top:2px;">Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'}</strong></div>
         </div>
         """, unsafe_allow_html=True)
 
 with tab2:
-    st.subheader("🎯 Specific Strike Imbalance")
-    strikes = [atm_strike + (i * 50) for i in range(-4, 5)]
-    strike_rows = [{"Strike": s, "CE Vol": f"{random.randint(10, 80)}L", "PE Vol": f"{random.randint(10, 80)}L", "Ratio": round(random.uniform(0.6, 1.8), 2)} for s in strikes]
-    st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
+    st.subheader("📈 Volume POC, VAH/VAL & Multi-Timeframe")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    col_p1.metric(label="VAH", value=f"₹{vah}")
+    col_p2.metric(label="POC Strike", value=f"{poc_strike}")
+    col_p3.metric(label="VAL", value=f"₹{val}")
+    st.info(f"📌 **Trend Status:** **{val_migration}**")
 
-with tab3:
-    st.subheader("📈 Futures & Open Interest (OI) Classification")
-    oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
-    st.markdown(f"""
-    <div style="background:#161B22; padding:15px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
-        <h4 style="color:#29B6F6; margin:0 0 8px 0;">⚡ LIVE OI BUILDUP TRACKER</h4>
-        <p style="margin:4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | ATM Strike: <strong>{atm_strike}</strong></p>
-        <div style="margin-top:10px;">Current Market Classification: <span class="{oi_badge_class}">{current_oi_status}</span></div>
-    </div>
-    """, unsafe_allow_html=True)
-    if current_oi_status == "LONG BUILDUP": st.success("🟢 **Price Up + OI Up:** బయ్యర్లు మార్కెట్‌ను బలంగా పైకి తోస్తున్నారు.")
-    elif current_oi_status == "SHORT COVERING": st.info("🔵 **Price Up + OI Down:** షార్ట్ సెల్లర్లు పొజిషన్స్ కట్ చేసుకుంటున్నారు.")
-    elif current_oi_status == "SHORT BUILDUP": st.error("🔴 **Price Down + OI Up:** సెల్లర్లు మార్కెట్‌ను కిందకి నెడుతున్నారు.")
-    else: st.warning("🟠 **Price Down + OI Down:** లాంగ్ పొజిషన్స్ అన్‌వైండ్ అవుతున్నాయి.")
-
-with tab4:
-    st.subheader("📍 Volume POC (Point of Control)")
-    st.markdown(f"""
-    <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 12px;">
-        <h3 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h3>
-        <p style="margin: 5px 0 0 0; font-size: 13px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with tab5:
-    st.subheader("⏳ Multi-Timeframe Matrix")
+    st.markdown("#### Multi-Timeframe Trend Matrix")
     mtf_data = [
-        {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
-        {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Confirmation"},
-        {"Timeframe": "5-Min", "Trend": mtf_5m, "Role": "Intraday Trend Anchor"}
+        {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Scalping Trigger"},
+        {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Conf."},
+        {"Timeframe": "5-Min", "Trend": mtf_5m, "Role": "Intraday Anchor"}
     ]
     st.dataframe(pd.DataFrame(mtf_data), use_container_width=True, hide_index=True)
 
-with tab6:
-    st.subheader("🏆 Strike Ranking & Win Probability")
-    strikes_list = [atm_strike + (i * 50) for i in range(-3, 4)]
+with tab3:
+    st.subheader("🏆 Strike Rankings, Win % & Pro Analytics")
+    c1, c2, c3 = st.columns(3)
+    c1.metric(label="Live PCR", value="1.14", delta="+0.08")
+    c2.metric(label="Max Pain", value=f"{atm_strike}")
+    c3.metric(label="ATM IV", value="13.45%", delta="-0.80%")
+
+    st.markdown("#### Strike Win Probabilities")
+    strikes_list = [atm_strike + (i * 50) for i in range(-2, 3)]
     for s in strikes_list:
         diff = s - atm_strike
-        if diff < 0: rank_title, stk_type, win_pct, delta, card_css, badge_color = "Rank 1 (Best)", f"ITM ({abs(diff)} pts)", 68, round(0.50 + (abs(diff)/500), 2), "rank-card-best", "#00E676"
-        elif diff == 0: rank_title, stk_type, win_pct, delta, card_css, badge_color = "Rank 2 (High)", "ATM", 52, 0.50, "rank-card-high", "#29B6F6"
-        else: rank_title, stk_type, win_pct, delta, card_css, badge_color = "Rank 3", f"OTM ({diff} pts)", 38, 0.38, "rank-card-mod", "#FFA726"
+        if diff < 0: rank_title, win_pct, card_css, badge_color = "Rank 1 (Best)", 68, "rank-card-best", "#00E676"
+        elif diff == 0: rank_title, win_pct, card_css, badge_color = "Rank 2 (High)", 52, "rank-card-high", "#29B6F6"
+        else: rank_title, win_pct, card_css, badge_color = "Rank 3", 38, "rank-card-mod", "#FFA726"
         st.markdown(f"""
         <div class="{card_css}">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="font-size: 16px; color: #FFF;">{s} ({stk_type})</strong>
-                <span style="background-color: {badge_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">{rank_title}</span>
+                <strong style="font-size: 14px; color: #FFF;">{s}</strong>
+                <span style="background-color: {badge_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{rank_title} ({win_pct}%)</span>
             </div>
-            <div style="margin-top: 6px; font-size: 13px;"><strong>Win Probability:</strong> <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span> | <strong>Delta:</strong> {delta}</div>
         </div>
         """, unsafe_allow_html=True)
 
-with tab7:
-    st.subheader("🔬 Institutional Pro Analytics & PCR")
-    c1, c2, c3 = st.columns(3)
-    c1.metric(label="Live PCR", value="1.14", delta="+0.08")
-    c2.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
-    c3.metric(label="Flow Score", value="78 / 100", delta="Strong")
-
-with tab8:
-    st.subheader("⚡ IV & Skew Monitor")
-    st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
-
-with tab9:
-    st.subheader("🔮 Gamma Exposure (GEX) & Zero Gamma Level")
+with tab4:
+    st.subheader("🔮 GEX, OI Traps & DOM Wall Pressure")
     st.markdown(f"""
         <div class="gex-card">
-            <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
-            <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
+            <h4 style="color: #AB47BC; margin:0 0 4px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
+            <p style="margin: 0; font-size: 12px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
         </div>
     """, unsafe_allow_html=True)
-    gex_data = [
-        {"Strike": atm_strike - 50, "Call GEX": "+42Cr", "Put GEX": "-18Cr", "Net Exposure": "Bullish Support"},
-        {"Strike": atm_strike, "Call GEX": "+85Cr", "Put GEX": "-72Cr", "Net Exposure": "Neutral Pivot"},
-        {"Strike": atm_strike + 50, "Call GEX": "-95Cr", "Put GEX": "+30Cr", "Net Exposure": "Bearish Wall"}
-    ]
-    st.dataframe(pd.DataFrame(gex_data), use_container_width=True, hide_index=True)
-    st.metric(label="Net Cumulative Delta", value=f"{c_delta:+d} Contracts")
 
-with tab10:
-    st.subheader("🚨 OI Trap Detector (Short/Long Traps)")
     st.markdown("""
         <div class="trap-card">
-            <h4 style="color: #FF9800; margin:0 0 5px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
-            <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ వచ్చే అవకాశం ఉంది!</p>
+            <h4 style="color: #FF9800; margin:0 0 4px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
+            <p style="margin: 0; font-size: 12px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ అవకాశం ఉంది!</p>
         </div>
     """, unsafe_allow_html=True)
-    trap_rows = [
-        {"Strike": atm_strike - 50, "Writer": "Put Writers", "Status": "🚨 TRAPPED", "Action": "Look for Call Entry"},
-        {"Strike": atm_strike + 50, "Writer": "Call Writers", "Status": "Safe / Hedged", "Action": "Watch for Resistance"}
-    ]
-    st.dataframe(pd.DataFrame(trap_rows), use_container_width=True, hide_index=True)
 
-with tab11:
-    st.subheader("🧬 Vanna & Charm Exposure (Advanced Greeks)")
-    col_v1, col_v2 = st.columns(2)
-    col_v1.metric(label="ATM Vanna Exposure", value=f"{vanna_atm}", delta="Volatility Sensitivity")
-    col_v2.metric(label="ATM Charm (Delta Decay)", value=f"{charm_atm}", delta="Time Decay Impact")
-    vanna_charm_table = [
-        {"Strike": atm_strike - 50, "Vanna (Vol Delta)": "+0.018", "Charm (Time Delta)": "-0.032", "State": "Stable Support"},
-        {"Strike": atm_strike, "Vanna (Vol Delta)": f"{vanna_atm}", "Charm (Time Delta)": f"{charm_atm}", "State": "High Pinning Zone"},
-        {"Strike": atm_strike + 50, "Vanna (Vol Delta)": "-0.021", "Charm (Time Delta)": "+0.041", "State": "Resistance Barrier"}
-    ]
-    st.dataframe(pd.DataFrame(vanna_charm_table), use_container_width=True, hide_index=True)
+    b_q, a_q, rat, stat = analyze_dom_pressure()
+    c_d1, c_d2 = st.columns(2)
+    c_d1.metric("Bid Depth", f"{b_q:,}")
+    c_d2.metric("Ask Depth", f"{a_q:,}")
+    st.warning(f"⚡ **DOM Wall:** **{stat}**")
 
-with tab12:
-    st.subheader("📊 Volume Profile VAH & VAL Migration (Advanced)")
-    col_p1, col_p2, col_p3 = st.columns(3)
-    col_p1.metric(label="Value Area High (VAH)", value=f"₹{vah}", delta="Resistance Band")
-    col_p2.metric(label="Point of Control (POC)", value=f"₹{poc_strike}", delta="Fair Value")
-    col_p3.metric(label="Value Area Low (VAL)", value=f"₹{val}", delta="Support Band")
-    st.info(f"📌 **Current Trend Status:** **{val_migration}**")
-
-with tab13:
-    st.subheader("🚀 Higher-Order Greeks (Color, Speed & Zomma)")
-    greeks_res = calculate_higher_order_greeks(spot, atm_strike, 0.04, 0.10, 0.14)
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Gamma", greeks_res["Gamma"])
-    c2.metric("Color (Time-Gamma)", greeks_res["Color"])
-    c3.metric("Speed (Spot-Gamma)", greeks_res["Speed"])
-    c4.metric("Zomma (Vol-Gamma)", greeks_res["Zomma"])
-    st.info("💡 **Color & Speed:** ఎక్స్‌పైరి రోజుల్లో సడన్ ప్రైస్ మూవ్‌మెంట్స్ మరియు ఆప్షన్ ప్రీమియం స్పైక్స్ అంచనా వేయడానికి ఇవి ముఖ్యం.")
-
-with tab14:
-    st.subheader("🤖 AI-Powered Intraday Directional Predictor (ML)")
+with tab5:
+    st.subheader("🧬 Higher-Order Greeks, Vanna/Charm & AI Predictor")
     b_prob, r_prob, sig = get_ai_direction_prediction()
     st.markdown(f"""
-    <div style="background: rgba(41, 182, 246, 0.1); border: 1px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center;">
-        <h3 style="color: #29B6F6; margin:0;">ML Signal: {sig}</h3>
-        <p style="margin: 8px 0 0 0; font-size: 14px;">Bullish Probability: <b>{b_prob}%</b> | Bearish Probability: <b>{r_prob}%</b></p>
+    <div style="background: rgba(41, 182, 246, 0.1); border: 1px solid #29B6F6; border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 10px;">
+        <h4 style="color: #29B6F6; margin:0;">ML Signal: {sig}</h4>
+        <p style="margin: 4px 0 0 0; font-size: 13px;">Bullish: <b>{b_prob}%</b> | Bearish: <b>{r_prob}%</b></p>
     </div>
     """, unsafe_allow_html=True)
 
-with tab15:
-    st.subheader("🎯 Multi-Strike Settlement & Pain Shift Tracker")
+    greeks_res = calculate_higher_order_greeks(spot, atm_strike, 0.04, 0.10, 0.14)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Gamma", greeks_res["Gamma"])
+    c2.metric("Color", greeks_res["Color"])
+    c3.metric("Speed", greeks_res["Speed"])
+    c4.metric("Zomma", greeks_res["Zomma"])
+
+    col_v1, col_v2 = st.columns(2)
+    col_v1.metric("Vanna", f"{vanna_atm}")
+    col_v2.metric("Charm", f"{charm_atm}")
+
+with tab6:
+    st.subheader("🎯 Settlement & Max Pain Shift Tracker")
     current_pain = atm_strike + random.choice([-50, 0, 50])
     st.metric(label="Dynamic Max Pain Shift Strike", value=f"{current_pain}", delta="Shifting Upwards")
     st.success(f"📌 బిగ్ ప్లేయర్స్ ఎక్స్‌పైరి సమయానికి మార్కెట్‌ను **{current_pain}** వద్ద సెటిల్ చేయడానికి ప్రయత్నిస్తున్నారు.")
-
-with tab16:
-    st.subheader("🧱 Real-Time DOM Large Wall Pressure")
-    b_q, a_q, rat, stat = analyze_dom_pressure()
-    c_d1, c_d2 = st.columns(2)
-    c_d1.metric("Total Bid Depth Qty", f"{b_q:,}")
-    c_d2.metric("Total Ask Depth Qty", f"{a_q:,}")
-    st.warning(f"⚡ **DOM Wall Status:** **{stat}** (Bid Ratio: {rat * 100}%)")
 
 # Auto Refresh Control in Sidebar
 st.sidebar.title("⚡ Control Panel")
