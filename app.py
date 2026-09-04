@@ -4,7 +4,6 @@ import numpy as np
 import requests
 import time
 from datetime import datetime
-import plotly.graph_objects as go
 from sklearn.neural_network import MLPClassifier
 
 st.set_page_config(
@@ -24,27 +23,20 @@ st.markdown("""
         border: 1px solid #1E222D;
         text-align: center;
     }
-    .status-alert {
-        padding: 12px;
-        border-radius: 8px;
-        font-weight: bold;
-        margin-bottom: 15px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# Streamlit Secrets నుండి Credentials తీసుకోబడును
+# Credentials from Secrets
 client_id = st.secrets.get("DHAN_CLIENT_ID", "")
 access_token = st.secrets.get("DHAN_ACCESS_TOKEN", "")
 
 def fetch_dhan_live_data(c_id, a_token):
     if not c_id or not a_token:
-        return None, "Secrets లో DHAN_CLIENT_ID లేదా DHAN_ACCESS_TOKEN నమోదు చేయలేదు."
+        return None, "Secrets లో DHAN_CLIENT_ID లేదా DHAN_ACCESS_TOKEN లేదు."
     
     c_id_str = str(c_id).strip()
     a_token_str = str(a_token).strip()
     
-    # 1. Direct REST Endpoint Call for Dhan Market Feed LTP
     url = "https://api.dhan.co/v2/marketfeed/ltp"
     headers = {
         "access-token": a_token_str,
@@ -53,7 +45,6 @@ def fetch_dhan_live_data(c_id, a_token):
         "Accept": "application/json"
     }
     
-    # NIFTY 50 Index Security ID = 13 (IDX_I / NSE_IDX)
     payload = {
         "NSE_IDX": [13],
         "IDX_I": [13],
@@ -65,27 +56,22 @@ def fetch_dhan_live_data(c_id, a_token):
 
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=5)
-        
         if response.status_code == 200:
             res_data = response.json()
             if res_data.get('status') == 'success' and 'data' in res_data:
                 data_body = res_data['data']
-                
-                # Dynamic parsing across Dhan segment keys
                 for seg in ["NSE_IDX", "IDX_I", "NSE_INDEX"]:
                     if seg in data_body and "13" in data_body[seg]:
                         spot_val = data_body[seg]["13"].get("last_price", 0)
                         if spot_val and float(spot_val) > 0:
                             spot = float(spot_val)
                             break
-                
                 if spot == 0.0:
                     err_detail = f"Dhan Response లో డేటా లేదు: {res_data}"
             else:
                 err_detail = f"Dhan API Error: {res_data.get('remarks', res_data)}"
         else:
             err_detail = f"HTTP Error {response.status_code}: {response.text}"
-            
     except Exception as e:
         err_detail = f"Connection Failure: {str(e)}"
 
@@ -97,14 +83,11 @@ def fetch_dhan_live_data(c_id, a_token):
             "put_wall": round(spot / 50) * 50 - 100,
             "pcr": 1.15,
             "cvd": 1850,
-            "vwap": round(spot - 8.5, 2),
-            "ema9": round(spot + 4.0, 2),
-            "ema21": round(spot - 6.0, 2)
-        }, "🟢 Connected to Dhan HQ Live API Feed"
+            "vwap": round(spot - 8.5, 2)
+        }, "Connected to Dhan HQ Live API Feed"
     else:
         return None, err_detail
 
-# Live Data Fetching Execution
 live_data, status_msg = fetch_dhan_live_data(client_id, access_token)
 
 st.title("⚡ Pro Order Flow & Institutional Analytics Engine")
@@ -113,24 +96,14 @@ if live_data and live_data["is_live"]:
     st.success(f"🟢 {status_msg}")
     market = live_data
 else:
-    st.error(f"❌ Dhan API Connection Failed: {status_msg}")
-    st.warning("⚠️ NIFTY Live Feed రాలేదు / Simulation Engine నడుస్తోంది. Access Token లేదా Credentials సరిచూసుకోండి.")
+    st.error(f"❌ Dhan API Details: {status_msg}")
+    st.warning("⚠️ NIFTY Live Feed రాలేదు / Simulation Engine నడుస్తోంది.")
     market = {
-        "is_live": False,
-        "spot": 24220.0,
-        "call_wall": 24300.0,
-        "put_wall": 24100.0,
-        "pcr": 1.15,
-        "cvd": -1500,
-        "vwap": 24210.0,
-        "ema9": 24225.0,
-        "ema21": 24205.0
+        "is_live": False, "spot": 24220.0, "call_wall": 24300.0,
+        "put_wall": 24100.0, "pcr": 1.15, "cvd": -1500, "vwap": 24210.0
     }
 
 st.markdown("---")
-
-# Dashboard UI Metrics
-st.subheader("🎯 Multi-Signal Confluence Matrix & Smart Entry Scanner")
 
 c1, c2 = st.columns([1, 1])
 with c1:
