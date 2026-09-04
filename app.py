@@ -36,6 +36,30 @@ st.markdown("""
         margin-bottom: 8px;
     }
     
+    /* Live Alert Boxes */
+    .alert-wall-box {
+        background-color: #1A2332;
+        border: 2px solid #29B6F6;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0px 4px 10px rgba(41, 182, 246, 0.2);
+    }
+    .alert-agg-bull {
+        background-color: rgba(0, 200, 83, 0.25);
+        border: 2px solid #00C853;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    .alert-agg-bear {
+        background-color: rgba(213, 0, 0, 0.25);
+        border: 2px solid #D50000;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    
     /* Badges */
     .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .badge-bear { background-color: #D50000; color: #FFF; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
@@ -62,10 +86,45 @@ st.caption(f"NIFTY SPOT: **₹{spot:,.2f}** | ATM STRIKE: **{atm_strike}**")
 
 st.info("💡 **Sell Strength = writing volume / opposite activity volume** | 🔴 **<0.75x Very Weak** | 🟢 **2.00x+ Aggressive**")
 
+# Generating Mock Live Data for Signals
+sell_strength_curr = round(np.random.uniform(0.5, 3.2), 2)
+is_wall_broken = np.random.choice([True, False], p=[0.3, 0.7])
+broken_strike = atm_strike + np.random.choice([-100, -50, 50, 100])
+
+# 🚨 LIVE INDICATOR SECTION (Top Banner Alerts)
+if is_wall_broken:
+    st.markdown(f"""
+        <div class="alert-wall-box">
+            <h4 style="color: #29B6F6; margin:0;">🚨 BIG WALL BREAK DETECTED!</h4>
+            <p style="margin: 4px 0 0 0; color: #E6EDF3; font-size: 13px;">
+                <strong>Strike Price {broken_strike}</strong> దగ్గర ఉన్న ఆప్షన్స్ రైటర్స్ వాల్ బ్రేక్ అయ్యింది. నిమిషంలో పెద్ద వ్యత్యాసం నమోదైంది!
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+if sell_strength_curr >= 2.5:
+    st.markdown(f"""
+        <div class="alert-agg-bull">
+            <h4 style="color: #00E676; margin:0;">🔥 AGGRESSIVE BULLISH FLOW ({sell_strength_curr}x)</h4>
+            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">
+                Sell Strength <strong>2.5x దాటింది ({sell_strength_curr}x)</strong>. Put Writing / Aggressive Buying చాలా బలంగా జరుగుతోంది!
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+elif sell_strength_curr <= 0.6:
+    st.markdown(f"""
+        <div class="alert-agg-bear">
+            <h4 style="color: #FF1744; margin:0;">⚡ AGGRESSIVE BEARISH FLOW ({sell_strength_curr}x)</h4>
+            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">
+                Sell Strength <strong>0.75x కంటే కిందకి పడిపోయింది ({sell_strength_curr}x)</strong>. Call Writing / Bearish Selling పెరిగింది!
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
 # Tabs
 tab1, tab2, tab3 = st.tabs(["📊 1-Min Candle Flow Cards", "🎯 Strike Wise Imbalance (ATM ± 6)", "📈 Futures OI & Neutralization"])
 
-# TAB 1: Live Candle Flow
+# TAB 1: Live Candle Flow Cards
 with tab1:
     st.subheader("⏱️ Live 1-Min Order Flow Stream")
     
@@ -140,7 +199,7 @@ with tab2:
     st.dataframe(
         df_strikes,
         use_container_width=True,
-        hide_index=True,  # తెల్లటి 0, 1, 2 ఇండెక్స్ కనిపించదు
+        hide_index=True,
         column_config={
             "Strike": st.column_config.NumberColumn("Strike Price", format="%d"),
             "Sell Strength Ratio": st.column_config.ProgressColumn(
