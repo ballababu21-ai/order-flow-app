@@ -35,32 +35,6 @@ st.markdown("""
         margin-bottom: 8px;
     }
     
-    .smart-signal-neutral {
-        background-color: #161B22;
-        border: 1px dashed #8B949E;
-        border-radius: 10px;
-        padding: 12px;
-        margin-bottom: 15px;
-        text-align: center;
-    }
-    
-    .mtf-box-bull {
-        background: rgba(0, 200, 83, 0.15);
-        border: 1px solid #00E676;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 10px;
-        text-align: center;
-    }
-    .mtf-box-bear {
-        background: rgba(213, 0, 0, 0.15);
-        border: 1px solid #FF1744;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 10px;
-        text-align: center;
-    }
-    
     .explosion-alert-box {
         background: linear-gradient(135deg, rgba(255, 23, 68, 0.2), rgba(255, 152, 0, 0.2));
         border: 2px solid #FF1744;
@@ -68,7 +42,6 @@ st.markdown("""
         padding: 15px;
         text-align: center;
         margin-bottom: 12px;
-        animation: pulse 1.5s infinite;
     }
     
     .gex-card {
@@ -89,7 +62,6 @@ st.markdown("""
     .rank-card-best { background-color: rgba(0, 200, 83, 0.15); border-left: 5px solid #00E676; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
     .rank-card-high { background-color: rgba(41, 182, 246, 0.15); border-left: 5px solid #29B6F6; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
     .rank-card-mod { background-color: rgba(255, 167, 38, 0.15); border-left: 5px solid #FFA726; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-    .rank-card-low { background-color: rgba(213, 0, 0, 0.15); border-left: 5px solid #FF1744; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
 
     .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     .oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
@@ -99,8 +71,6 @@ st.markdown("""
     .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .badge-bear { background-color: #D50000; color: #FFF; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     
-    .txt-green { color: #00E676; font-weight: bold; }
-    .txt-red { color: #FF1744; font-weight: bold; }
     .txt-blue { color: #29B6F6; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
@@ -112,7 +82,7 @@ fut_price = spot + 18.5
 zero_gamma = atm_strike - 25
 c_delta = np.random.randint(-1500, 1800)
 
-st.title("⚡ NIFTY Pro Engine (Advanced + Institutional)")
+st.title("⚡ NIFTY Pro Engine (Advanced)")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
@@ -130,12 +100,13 @@ if is_explosion:
     st.markdown("""
     <div class="explosion-alert-box">
         <h3 style="color: #FF1744; margin:0;">🚨 GAMMA EXPLOSION & SPIKE DETECTED!</h3>
-        <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి. బిగ్ మూవ్ వచ్చే ఛాన్స్ ఉంది!</p>
+        <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి!</p>
     </div>
     """, unsafe_allow_html=True)
 
-# Tabs definition (Cleaned up, single declaration)
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+# Sidebar Menu for Navigation (Mobile Friendly)
+st.sidebar.title("⚡ Control & Navigation")
+menu = st.sidebar.radio("Select View", [
     "📊 Flow Cards", 
     "🎯 Strike Flow", 
     "📈 Futures & OI",
@@ -148,7 +119,10 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "🚨 OI Trap Detector"
 ])
 
-with tab1:
+auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
+
+# Section Rendering based on Sidebar Menu
+if menu == "📊 Flow Cards":
     st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
     for i in range(4):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
@@ -158,7 +132,6 @@ with tab1:
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
         
-        # Proper State Assignment avoiding duplication
         state_text = np.random.choice(["STRONG ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE"])
         ce_val = round(np.random.uniform(10, 90), 1)
         pe_val = round(np.random.uniform(10, 90), 1)
@@ -177,13 +150,13 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-with tab2:
+elif menu == "🎯 Strike Flow":
     st.subheader("🎯 Specific Strike Imbalance")
     strikes = [atm_strike + (i * 50) for i in range(-4, 5)]
     strike_rows = [{"Strike": s, "CE Vol": f"{np.random.randint(10, 80)}L", "PE Vol": f"{np.random.randint(10, 80)}L", "Ratio": round(np.random.uniform(0.6, 1.8), 2)} for s in strikes]
     st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
 
-with tab3:
+elif menu == "📈 Futures & OI":
     st.subheader("📈 Futures & Open Interest (OI) Classification")
     oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
     st.markdown(f"""
@@ -202,7 +175,7 @@ with tab3:
     else:
         st.warning("🟠 **Price Down + OI Down:** లాంగ్ పొజిషన్స్ అన్‌వైండ్ అవుతున్నాయి (Profit Booking / Weakness).")
 
-with tab4:
+elif menu == "📍 Volume POC":
     st.subheader("📍 Volume POC (Point of Control)")
     st.markdown(f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 12px;">
@@ -211,7 +184,7 @@ with tab4:
     </div>
     """, unsafe_allow_html=True)
 
-with tab5:
+elif menu == "⏳ MTF Matrix":
     st.subheader("⏳ Multi-Timeframe Matrix")
     mtf_data = [
         {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
@@ -220,7 +193,7 @@ with tab5:
     ]
     st.dataframe(pd.DataFrame(mtf_data), use_container_width=True, hide_index=True)
 
-with tab6:
+elif menu == "🏆 Win Probability":
     st.subheader("🏆 Strike Ranking & Win Probability")
     strikes_list = [atm_strike + (i * 50) for i in range(-3, 4)]
     for s in strikes_list:
@@ -241,18 +214,18 @@ with tab6:
         </div>
         """, unsafe_allow_html=True)
 
-with tab7:
+elif menu == "🔬 Pro Analytics":
     st.subheader("🔬 Institutional Pro Analytics & PCR")
     col1, col2, col3 = st.columns(3)
     with col1: st.metric(label="Live PCR", value="1.14", delta="+0.08")
     with col2: st.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
     with col3: st.metric(label="Flow Score", value="78 / 100", delta="Strong")
 
-with tab8:
+elif menu == "⚡ IV & Skew":
     st.subheader("⚡ IV & Skew Monitor")
     st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
 
-with tab9:
+elif menu == "🔮 GEX & Zero Gamma":
     st.subheader("🔮 Gamma Exposure (GEX) & Zero Gamma Level")
     st.markdown(f"""
         <div class="gex-card">
@@ -275,7 +248,7 @@ with tab9:
     else:
         st.error("🔴 **డెల్టా డైవర్జెన్స్ (Fake Breakout):** ఫేక్ బ్రేక్‌అవుట్!")
 
-with tab10:
+elif menu == "🚨 OI Trap Detector":
     st.subheader("🚨 OI Trap Detector (Short/Long Traps)")
     st.markdown("""
         <div class="trap-card">
@@ -290,8 +263,6 @@ with tab10:
     st.dataframe(pd.DataFrame(trap_rows), use_container_width=True, hide_index=True)
 
 # Auto Refresh Control
-st.sidebar.title("⚡ Control Panel")
-auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
 if auto:
     time.sleep(5)
     st.rerun()
