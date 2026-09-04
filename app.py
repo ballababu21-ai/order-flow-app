@@ -4,6 +4,7 @@ import numpy as np
 import requests
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo  # Indian Timezone కోసం
 
 st.set_page_config(
     page_title="NIFTY ATM ± 6 Order Flow Engine",
@@ -11,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Mobile-Optimized Custom Styling
+# Custom Styling
 st.markdown("""
     <style>
     .flow-card {
@@ -47,6 +48,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# IST Timezone Setup
+ist = ZoneInfo("Asia/Kolkata")
+
 # Fetch Credentials
 client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
 access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
@@ -73,9 +77,10 @@ def fetch_live_spot():
 spot = fetch_live_spot()
 atm_strike = round(spot / 50) * 50
 
-# Header
+# Header with IST Time
+now_ist = datetime.now(ist)
 st.title("⚡ NIFTY ATM ± 6 Strike Order Flow Engine")
-st.success(f"🟢 Dhan API కనెక్ట్ అయింది! | కరెంట్ టైమ్: {datetime.now().strftime('%I:%M:%S %p')}")
+st.success(f"🟢 Dhan API కనెక్ట్ అయింది! | కరెంట్ టైమ్: {now_ist.strftime('%I:%M:%S %p')} (IST)")
 st.caption(f"NIFTY 50 SPOT: **₹{spot:,.2f}** | ATM STRIKE: **{atm_strike}**")
 
 st.markdown("---")
@@ -83,16 +88,14 @@ st.markdown("---")
 # Navigation Tabs
 tab1, tab2, tab3 = st.tabs(["📊 1-Min Candle Flow", "🎯 Strike Wise Imbalance (ATM ± 6)", "📈 Futures OI & Neutralization"])
 
-# TAB 1: Real-Time Dynamic 1-Min All Candles Flow
+# TAB 1: Real-Time Dynamic 1-Min All Candles Flow (IST Time)
 with tab1:
-    st.subheader("⏱️ Live 1-Min Candle Flow (Real-Time Stream)")
+    st.subheader("⏱️ Live 1-Min Candle Flow (IST Time Stream)")
     
-    # Dynamic live timestamp generator
-    now = datetime.now()
     candles_data = []
     
     for i in range(5):
-        t_str = (now - timedelta(minutes=i)).strftime("%H:%M")
+        t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + np.random.uniform(-5, 5), 2)
         side = "BULL" if i % 2 == 0 else "BEAR"
         wall_state = "STRONG ALIGNMENT" if i % 2 == 0 else "No wall touch"
