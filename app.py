@@ -5,9 +5,8 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Page Config
 st.set_page_config(
-    page_title="NIFTY Institutional Pro Terminal",
+    page_title="NIFTY Simulated Pro Terminal",
     page_icon="⚡",
     layout="wide"
 )
@@ -15,11 +14,9 @@ st.set_page_config(
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
-# Custom Dark Styling with Correct Card & Alignment Colors
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
-    
     .card-bull {
         background: linear-gradient(135deg, rgba(0, 200, 83, 0.12), rgba(0, 230, 118, 0.02));
         border: 1px solid #00C853;
@@ -43,47 +40,36 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Live Simulation Variables
-spot = 24225.50
+# Simulated live random data generation
+base_spot = 24225.50
+random_offset = np.random.uniform(-10, 10)
+spot = round(base_spot + random_offset, 2)
 atm_strike = round(spot / 50) * 50
-zero_gamma_line = atm_strike - 25
-vah = atm_strike + 75
-val = atm_strike - 75
-poc = atm_strike
-vwap_val = 24215.50
-sd1_upper = vwap_val + 42.0
-sd2_upper = vwap_val + 84.0
-sd1_lower = vwap_val - 42.0
-sd2_lower = vwap_val - 84.0
-cDelta_val = np.random.randint(-1500, 1800)
 
-# Header Section
-st.title("⚡ NIFTY Pro Terminal (Wall Touch + Alignment)")
-st.success(f"🟢 Dhan API తో విజయవంతంగా కనెక్ట్ అయింది! | {now_ist.strftime('%I:%M:%S %p')} IST")
+st.title("⚡ NIFTY Pro Terminal (Smart Simulation Mode)")
+st.success(f"🟢 సిమ్యులేటెడ్ లైవ్ మోడ్ యాక్టివ్! | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"NIFTY 50 SPOT: **₹{spot:,.2f}** | ATM STRIKE: **{atm_strike}**")
 
-# Tabs Architecture
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📊 1-Min Candle Flow", 
     "🎯 Strike Wise Imbalance", 
     "⏳ MTF Matrix",
-    "🏆 Win Probability", 
-    "🔮 Gamma & Traps", 
-    "📍 VWAP & SD",
-    "🌊 Cum. Delta"
+    "🏆 Win Probability"
 ])
+
+current_time_str = now_ist.strftime('%H:%M')
 
 with tab1:
     st.subheader("⏱️ 1-Min All Candles Flow (Wall Touch & Alignment)")
     
-    flows = [
-        {"Time": "12:45", "Price": "₹24223.55", "Type": "BEAR", "State": "No wall touch", "StrikeFlow": "24300 CE (1.7Cr / PE 83.9L)"},
-        {"Time": "12:44", "Price": "₹24220.20", "Type": "BULL", "State": "STRONG ALIGNMENT", "StrikeFlow": "24200 PE (2.67Cr / CE 1.11Cr)"},
-        {"Time": "12:43", "Price": "₹24218.10", "Type": "BULL", "State": "STRONG ALIGNMENT", "StrikeFlow": "24150 PE (64.8L / CE 18.7L)"},
-        {"Time": "12:42", "Price": "₹24215.00", "Type": "BEAR", "State": "No wall touch", "StrikeFlow": "24250 CE (53.1L / PE 76.7L)"}
+    simulated_flows = [
+        {"Time": current_time_str, "Price": f"₹{spot}", "Type": np.random.choice(["BULL", "BEAR"]), "State": np.random.choice(["STRONG ALIGNMENT", "No wall touch", "WALL TOUCH (+2 SD)"]), "CE": round(np.random.uniform(1.0, 5.0), 2), "PE": round(np.random.uniform(50.0, 90.0), 2)},
+        {"Time": "12:44", "Price": "₹24220.20", "Type": "BULL", "State": "STRONG ALIGNMENT", "CE": 2.67, "PE": 1.11},
+        {"Time": "12:43", "Price": "₹24218.10", "Type": "BULL", "State": "STRONG ALIGNMENT", "CE": 64.8, "PE": 18.7},
+        {"Time": "12:42", "Price": "₹24215.00", "Type": "BEAR", "State": "No wall touch", "CE": 53.1, "PE": 76.7}
     ]
     
-    for f in flows:
+    for f in simulated_flows:
         if f["Type"] == "BULL":
             card_class = "card-bull"
             badge = '<span class="badge-bull">BULL</span>'
@@ -91,7 +77,7 @@ with tab1:
             card_class = "card-bear"
             badge = '<span class="badge-bear">BEAR</span>'
             
-        state_badge = f'<span class="badge-alignment">{f["State"]}</span>' if "ALIGNMENT" in f["State"] else f'<span style="color: #888; font-size: 12px;">State: {f["State"]}</span>'
+        state_badge = f'<span class="badge-alignment">{f["State"]}</span>' if "ALIGNMENT" in f["State"] or "TOUCH" in f["State"] else f'<span style="color: #888; font-size: 12px;">State: {f["State"]}</span>'
         
         st.markdown(f"""
             <div class="{card_class}">
@@ -100,7 +86,7 @@ with tab1:
                     {badge}
                 </div>
                 <div style="margin: 6px 0 4px 0;">{state_badge}</div>
-                <p style="margin: 0; font-size: 13px; color: #00E676;">Strike Flow: {f['StrikeFlow']}</p>
+                <p style="margin: 0; font-size: 13px; color: #00E676;">Strike Flow: {atm_strike} CE ({f['CE']}Cr / PE {f['PE']}Cr)</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -122,34 +108,15 @@ with tab3:
 with tab4:
     st.subheader("🏆 Win Probability & Strike Ranking")
     ranking_data = [
-        {"Strike": "24100 (ITM 150 pts)", "Win Probability": "68%", "Delta": "0.8", "Status": "Rank 1 (Best) - High Delta & Low Decay"},
-        {"Strike": "24150 (ITM 100 pts)", "Win Probability": "68%", "Delta": "0.7", "Status": "Rank 1 (Best) - High Delta & Low Decay"},
-        {"Strike": "24200 (ITM 50 pts)", "Win Probability": "68%", "Delta": "0.6", "Status": "Rank 1 (Best) - Balanced"},
-        {"Strike": "24250 (ATM)", "Win Probability": "52%", "Delta": "0.5", "Status": "Rank 2 (High Momentum)"}
+        {"Strike": f"{atm_strike - 150} (ITM)", "Win Probability": "68%", "Delta": "0.8", "Status": "Rank 1 (Best) - High Delta & Low Decay"},
+        {"Strike": f"{atm_strike - 50} (ITM)", "Win Probability": "68%", "Delta": "0.6", "Status": "Rank 1 (Best) - Balanced"},
+        {"Strike": f"{atm_strike} (ATM)", "Win Probability": "52%", "Delta": "0.5", "Status": "Rank 2 (High Momentum)"}
     ]
     st.dataframe(pd.DataFrame(ranking_data), use_container_width=True, hide_index=True)
 
-with tab5:
-    st.subheader("🔮 Gamma Exposure & OI Traps")
-    st.info(f"Zero Gamma Line: {zero_gamma_line} | వొలటైలిటీ కంట్రోల్ జోన్ فعال.")
-
-with tab6:
-    st.subheader("📍 VWAP & Standard Deviation Bands")
-    st.markdown(f"""
-        <div style="background: rgba(41, 182, 246, 0.1); border: 1px solid #29B6F6; border-radius: 8px; padding: 12px;">
-            <p style="margin: 3px 0;">+2 SD Upper Band: <strong class="txt-red">₹{sd2_upper:,.2f}</strong></p>
-            <p style="margin: 3px 0;">VWAP Fair Value: <strong class="txt-blue">₹{vwap_val:,.2f}</strong></p>
-            <p style="margin: 3px 0;">-2 SD Lower Band: <strong class="txt-green">₹{sd2_lower:,.2f}</strong></p>
-        </div>
-    """, unsafe_allow_html=True)
-
-with tab7:
-    st.subheader("🌊 Cumulative Delta (CDELTA)")
-    st.metric(label="Net Cumulative Delta", value=f"{cDelta_val:+d} Contracts", delta="Aggressive Momentum")
-
 # Auto Refresh Control Panel
 st.sidebar.title("⚡ Control Panel")
-auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
+auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (3 sec)", value=True)
 if auto:
-    time.sleep(5)
+    time.sleep(3)
     st.rerun()
