@@ -199,7 +199,6 @@ with tab2:
 with tab3:
     st.subheader("📈 Futures & Open Interest (OI) Classification")
     
-    # Badge selector for OI status
     oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
     
     st.markdown(f"""
@@ -215,7 +214,7 @@ with tab3:
     if current_oi_status == "LONG BUILDUP":
         st.success("🟢 **Price Up + OI Up:** బయ్యర్లు మార్కెట్‌ను బలంగా పైకి తోస్తున్నారు (Bullish Continuation).")
     elif current_oi_status == "SHORT COVERING":
-        st.blue("🔵 **Price Up + OI Down:** షార్ట్ సెల్లర్లు భయపడి పొజిషన్స్ కట్ చేసుకుంటున్నారు (Rapid Upside Spike).")
+        st.info("🔵 **Price Up + OI Down:** షార్ట్ సెల్లర్లు భయపడి పొజిషన్స్ కట్ చేసుకుంటున్నారు (Rapid Upside Spike).")
     elif current_oi_status == "SHORT BUILDUP":
         st.error("🔴 **Price Down + OI Up:** సెల్లర్లు మార్కెట్‌ను కిందకి నెడుతున్నారు (Bearish Pressure).")
     else:
