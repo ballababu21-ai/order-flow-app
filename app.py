@@ -15,7 +15,7 @@ st.set_page_config(
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
-# Custom Dark Styling
+# Custom Dark Styling & Mobile Fixes
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
@@ -86,6 +86,36 @@ st.markdown("""
         text-align: center;
     }
     
+    /* Strike Cards Styling for Mobile */
+    .rank-card-best {
+        background-color: rgba(0, 200, 83, 0.15);
+        border-left: 5px solid #00E676;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    .rank-card-high {
+        background-color: rgba(41, 182, 246, 0.15);
+        border-left: 5px solid #29B6F6;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    .rank-card-mod {
+        background-color: rgba(255, 167, 38, 0.15);
+        border-left: 5px solid #FFA726;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    .rank-card-low {
+        background-color: rgba(213, 0, 0, 0.15);
+        border-left: 5px solid #FF1744;
+        padding: 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+
     /* Badges */
     .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .badge-bear { background-color: #D50000; color: #FFF; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
@@ -107,11 +137,9 @@ atm_strike = round(spot / 50) * 50
 fut_price = spot + 18.5  # Futures Price Estimate
 
 # Header Section
-st.title("⚡ NIFTY ATM ± 6 Order Flow Engine")
-st.success(f"🟢 Dhan API Connected | Current Time: {now_ist.strftime('%I:%M:%S %p')} (IST)")
-st.caption(f"NIFTY SPOT: **₹{spot:,.2f}** | NIFTY FUT: **₹{fut_price:,.2f}** | ATM STRIKE: **{atm_strike}**")
-
-st.info("💡 **Sell Strength = writing volume / opposite activity volume** | 🔴 **<0.75x Very Weak** | 🟢 **2.00x+ Aggressive**")
+st.title("⚡ NIFTY Order Flow Engine")
+st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
+st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
 # Generating Mock Live Data for Signals
 sell_strength_curr = round(np.random.uniform(0.5, 3.2), 2)
@@ -119,126 +147,70 @@ is_wall_broken = np.random.choice([True, False], p=[0.25, 0.75])
 broken_strike = atm_strike + np.random.choice([-100, -50, 50, 100])
 fut_signal = np.random.choice(["SHORT_COVERING", "LONG_UNWINDING", "NEUTRAL"], p=[0.4, 0.4, 0.2])
 
-# ⚡ SMART FLOW SIGNAL GENERATION (AI CONFIRMATION)
+# ⚡ SMART FLOW SIGNAL
 if sell_strength_curr >= 2.0 and fut_signal == "SHORT_COVERING":
     st.markdown(f"""
         <div class="smart-signal-call">
-            <h2 style="color: #00E676; margin:0;">🚀 HIGH PROBABILITY CALL BUY SIGNAL</h2>
-            <p style="margin: 5px 0 0 0; color: #FFF; font-size: 14px;">
-                <strong>కన్ఫర్మేషన్:</strong> Put Writing బలంగా ఉంది (Sell Strength: {sell_strength_curr}x) + ఫ్యూచర్స్‌లో Short Covering నమోదైంది.
+            <h3 style="color: #00E676; margin:0;">🚀 HIGH PROBABILITY CALL BUY</h3>
+            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">
+                Put Writing: {sell_strength_curr}x + Short Covering
             </p>
         </div>
     """, unsafe_allow_html=True)
 elif sell_strength_curr <= 0.75 and fut_signal == "LONG_UNWINDING":
     st.markdown(f"""
         <div class="smart-signal-put">
-            <h2 style="color: #FF1744; margin:0;">📉 HIGH PROBABILITY PUT BUY SIGNAL</h2>
-            <p style="margin: 5px 0 0 0; color: #FFF; font-size: 14px;">
-                <strong>కన్ఫర్మేషన్:</strong> Call Writing ఆధిపత్యం (Sell Strength: {sell_strength_curr}x) + ఫ్యూచర్స్‌లో Long Unwinding నమోదైంది.
+            <h3 style="color: #FF1744; margin:0;">📉 HIGH PROBABILITY PUT BUY</h3>
+            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">
+                Call Writing: {sell_strength_curr}x + Long Unwinding
             </p>
         </div>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
         <div class="smart-signal-neutral">
-            <h4 style="color: #8B949E; margin:0;">⚖️ SMART FLOW SIGNAL: NEUTRAL / CONSOLIDATION</h4>
-            <p style="margin: 3px 0 0 0; color: #8B949E; font-size: 12px;">
-                మార్కెట్‌లో ప్రస్తుతం స్పష్టమైన అలైన్‌మెంట్ లేదు. బ్రేక్‌అవుట్ లేదా క్లియర్ కన్ఫర్మేషన్ కోసం వేచి చూడండి.
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
-# 🚨 LIVE INDICATORS
-if is_wall_broken:
-    st.markdown(f"""
-        <div class="alert-wall-box">
-            <h4 style="color: #29B6F6; margin:0;">🚨 BIG WALL BREAK DETECTED!</h4>
-            <p style="margin: 4px 0 0 0; color: #E6EDF3; font-size: 13px;">
-                <strong>Strike Price {broken_strike}</strong> దగ్గర ఉన్న ఆప్షన్స్ రైటర్స్ వాల్ బ్రేక్ అయ్యింది. నిమిషంలో పెద్ద వ్యత్యాసం నమోదైంది!
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
-if sell_strength_curr >= 2.5:
-    st.markdown(f"""
-        <div class="alert-agg-bull">
-            <h4 style="color: #00E676; margin:0;">🔥 AGGRESSIVE BULLISH FLOW ({sell_strength_curr}x)</h4>
-            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">
-                Sell Strength <strong>2.5x దాటింది ({sell_strength_curr}x)</strong>. Put Writing / Aggressive Buying చాలా బలంగా జరుగుతోంది!
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-elif sell_strength_curr <= 0.6:
-    st.markdown(f"""
-        <div class="alert-agg-bear">
-            <h4 style="color: #FF1744; margin:0;">⚡ AGGRESSIVE BEARISH FLOW ({sell_strength_curr}x)</h4>
-            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">
-                Sell Strength <strong>0.75x కంటే కిందకి పడిపోయింది ({sell_strength_curr}x)</strong>. Call Writing / Bearish Selling పెరిగింది!
-            </p>
+            <h4 style="color: #8B949E; margin:0;">⚖️ SMART SIGNAL: NEUTRAL</h4>
         </div>
     """, unsafe_allow_html=True)
 
 # Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 1-Min Candle Flow Cards", 
-    "🎯 Strike Wise Imbalance (ATM ± 6)", 
-    "📈 Futures OI & Neutralization",
-    "🏆 Strike Ranking & Win Probability"
+    "📊 Flow Cards", 
+    "🎯 Strike Flow", 
+    "📈 Futures OI",
+    "🏆 Win Probability"
 ])
 
 # TAB 1: Live Candle Flow Cards
 with tab1:
-    st.subheader("⏱️ Live 1-Min Order Flow Stream")
-    
-    for i in range(8):
+    st.subheader("⏱️ Live Order Flow")
+    for i in range(5):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + np.random.uniform(-4, 4), 2)
         is_bull = (i % 2 != 0)
         
         box_class = "row-bull-box" if is_bull else "row-bear-box"
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
-        wall_badge = '<span class="badge-align">STRONG ALIGNMENT</span>' if is_bull else '<span class="txt-sub">No wall touch</span>'
-        
         stk = atm_strike + (-50 if is_bull else 50)
         c_vol = round(np.random.uniform(1.0, 2.8), 2)
         p_vol = round(np.random.uniform(0.5, 1.9), 2)
-        net_val = round(np.random.uniform(-15.0, 15.0), 2)
         
-        net_cls = "txt-green" if net_val > 0 else "txt-red"
-        status_title = "Short Covering" if is_bull else "Long Unwinding"
-        status_cls = "txt-green" if is_bull else "txt-red"
-        
-        card_html = f"""
+        st.markdown(f"""
         <div class="{box_class}">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <strong style="font-size: 15px; color: #FFF;">{t_str}</strong> 
-                    <span class="txt-sub" style="margin-left: 8px;">₹{s_price}</span>
-                </div>
-                <div>{side_badge}</div>
+            <div style="display: flex; justify-content: space-between;">
+                <strong>{t_str} (₹{s_price})</strong>
+                {side_badge}
             </div>
-            <div style="margin-top: 6px; font-size: 12px;">
-                State: <span class="txt-sub">FLOW ONLY</span> | {wall_badge}
-            </div>
-            <div style="margin-top: 6px; font-size: 12px;">
-                <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'}</strong> 
-                <span class="txt-sub">({c_vol}Cr / PE {p_vol}L)</span> | 
-                Net: <span class="{net_cls}">{net_val:+0.2f}L</span>
-            </div>
-            <div style="margin-top: 4px; font-size: 11px;">
-                <span class="{status_cls}">PE Sell: {c_vol}L</span> | 
-                <span class="txt-sub">CE Buy: {p_vol}L</span> | 
-                Signal: <strong class="{status_cls}">{status_title}</strong>
+            <div style="font-size: 12px; margin-top:4px;">
+                <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'}</strong> | PE Sell: {c_vol}L | CE Buy: {p_vol}L
             </div>
         </div>
-        """
-        st.markdown(card_html, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-# TAB 2: Clean Dark-Themed Strike Imbalance Table
+# TAB 2: Specific Strike Imbalance Table
 with tab2:
-    st.subheader("🎯 Specific Strike Options Flow & Volume Imbalance (ATM ± 6)")
-    
-    strikes = [atm_strike + (i * 50) for i in range(-6, 7)]
+    st.subheader("🎯 Specific Strike Imbalance")
+    strikes = [atm_strike + (i * 50) for i in range(-4, 5)]
     strike_rows = []
     
     for s in strikes:
@@ -246,122 +218,84 @@ with tab2:
         pe_v = np.random.randint(10, 90)
         str_ratio = round(pe_v / (ce_v + 0.1), 2)
         
-        imbalance = "Strong Call Writing" if str_ratio < 0.8 else ("Strong Put Writing" if str_ratio > 1.3 else "Neutral Flow")
-        
         strike_rows.append({
             "Strike": s,
             "CE Vol": f"{ce_v}L",
             "PE Vol": f"{pe_v}L",
-            "Sell Strength Ratio": str_ratio,
-            "Imbalance Status": imbalance
+            "Ratio": str_ratio
         })
         
     df_strikes = pd.DataFrame(strike_rows)
-    
-    st.dataframe(
-        df_strikes,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Strike": st.column_config.NumberColumn("Strike Price", format="%d"),
-            "Sell Strength Ratio": st.column_config.ProgressColumn(
-                "Sell Strength",
-                format="%.2fx",
-                min_value=0,
-                max_value=3.0
-            ),
-        }
-    )
+    st.dataframe(df_strikes, use_container_width=True, hide_index=True)
 
 # TAB 3: Futures Signals
 with tab3:
-    st.subheader("📈 Futures Cum Neutralization & OI Signals")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-            <div style="background:#161B22; padding:12px; border-radius:6px; border:1px solid #00C853;">
-                <h4 style="color:#00E676; margin:0;">SHORT COVERING DETECTED</h4>
-                <p style="margin:5px 0 0 0; color:#FFF; font-size:13px;"><strong>Ref Fut Price:</strong> ₹{fut_price:,.2f} | <strong>ATM Strike:</strong> {atm_strike}</p>
-                <p style="margin:3px 0; color:#E6EDF3; font-size:12px;">Price Change: +0.10 % | OI Change: -1.8K</p>
-                <p style="color:#8B949E; margin:0; font-size:11px;">Cum Volume: 9.10K | Vol Strength: 1.07x</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    with col2:
-        st.markdown(f"""
-            <div style="background:#161B22; padding:12px; border-radius:6px; border:1px solid #D50000;">
-                <h4 style="color:#FF1744; margin:0;">LONG UNWINDING DETECTED</h4>
-                <p style="margin:5px 0 0 0; color:#FFF; font-size:13px;"><strong>Ref Fut Price:</strong> ₹{fut_price - 12:,.2f} | <strong>ATM Strike:</strong> {atm_strike}</p>
-                <p style="margin:3px 0; color:#E6EDF3; font-size:12px;">Price Change: -0.15 % | OI Change: -3.2K</p>
-                <p style="color:#8B949E; margin:0; font-size:11px;">Cum Volume: 11.31K | Vol Strength: 2.11x</p>
-            </div>
-        """, unsafe_allow_html=True)
+    st.subheader("📈 Futures Signals")
+    st.markdown(f"""
+        <div style="background:#161B22; padding:12px; border-radius:6px; border:1px solid #00C853; margin-bottom:10px;">
+            <h4 style="color:#00E676; margin:0;">SHORT COVERING DETECTED</h4>
+            <p style="margin:3px 0; font-size:12px;">Fut Price: ₹{fut_price:,.2f} | ATM: {atm_strike}</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-# TAB 4: Strike Ranking & Win Probability Table
+# TAB 4: Strike Ranking & Win Probability (Mobile Optimized Cards)
 with tab4:
-    st.subheader("🏆 Strike Price Ranking & Win Probability Calculator")
-    st.caption("డెల్టా మరియు టైమ్ డికే ఆధారంగా గెలిచే అవకాశాలు (%) గల స్ట్రైక్స్ వివరాలు:")
+    st.subheader("🏆 Strike Ranking & Win Probability")
     
-    rank_data = []
-    strikes_list = [atm_strike + (i * 50) for i in range(-4, 5)]
+    strikes_list = [atm_strike + (i * 50) for i in range(-3, 4)]
     
     for s in strikes_list:
         diff = s - atm_strike
         
-        # Call Perspective Calculation
         if diff < 0:
+            rank_title = "Rank 1 (Best)"
             stk_type = f"ITM ({abs(diff)} pts)"
-            rank = "Rank 1 (Best)"
             win_pct = 68 - (abs(diff)//50 * 3)
             delta = round(0.50 + (abs(diff)/500), 2)
-            rec = "🥇 Best for Buying (High Win Rate)"
+            card_css = "rank-card-best"
+            badge_color = "#00E676"
+            rec = "🥇 Best Choice (High Delta & Low Decay)"
         elif diff == 0:
+            rank_title = "Rank 2 (High)"
             stk_type = "ATM"
-            rank = "Rank 2 (High)"
             win_pct = 52
             delta = 0.50
+            card_css = "rank-card-high"
+            badge_color = "#29B6F6"
             rec = "🥈 Balanced (Good Momentum)"
         elif diff == 50:
+            rank_title = "Rank 3 (Moderate)"
             stk_type = "OTM (50 pts)"
-            rank = "Rank 3 (Moderate)"
             win_pct = 38
             delta = 0.38
+            card_css = "rank-card-mod"
+            badge_color = "#FFA726"
             rec = "🥉 Moderate Risk (Faster Decay)"
         else:
+            rank_title = "Rank 4 (Low)"
             stk_type = f"Deep OTM ({diff} pts)"
-            rank = "Rank 4 (Low)"
             win_pct = max(10, 25 - (diff//50 * 5))
             delta = round(max(0.10, 0.30 - (diff/500)), 2)
+            card_css = "rank-card-low"
+            badge_color = "#FF1744"
             rec = "⚠️ High Risk (Avoid Buying)"
-            
-        rank_data.append({
-            "Rank": rank,
-            "Strike Price": s,
-            "Category": stk_type,
-            "Delta": delta,
-            "Win Probability": win_pct,
-            "Recommendation": rec
-        })
-        
-    df_rank = pd.DataFrame(rank_data)
-    
-    st.dataframe(
-        df_rank,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Strike Price": st.column_config.NumberColumn("Strike", format="%d"),
-            "Win Probability": st.column_config.ProgressColumn(
-                "Win Probability %",
-                format="%d%%",
-                min_value=0,
-                max_value=100
-            ),
-        }
-    )
 
-# Auto Refresh Control
+        st.markdown(f"""
+        <div class="{card_css}">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <strong style="font-size: 16px; color: #FFF;">{s} ({stk_type})</strong>
+                <span style="background-color: {badge_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">{rank_title}</span>
+            </div>
+            <div style="margin-top: 6px; font-size: 13px;">
+                <strong>Win Probability:</strong> <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span> | <strong>Delta:</strong> {delta}
+            </div>
+            <div style="font-size: 11px; color: #8B949E; margin-top: 4px;">
+                {rec}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# Auto Refresh
 st.sidebar.title("⚡ Control Panel")
 auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
 if auto:
