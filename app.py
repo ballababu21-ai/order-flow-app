@@ -42,22 +42,48 @@ st.markdown("""
         border: 2px solid #29B6F6;
         border-radius: 8px;
         padding: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         box-shadow: 0px 4px 10px rgba(41, 182, 246, 0.2);
     }
     .alert-agg-bull {
-        background-color: rgba(0, 200, 83, 0.25);
+        background-color: rgba(0, 200, 83, 0.2);
         border: 2px solid #00C853;
         border-radius: 8px;
         padding: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     .alert-agg-bear {
-        background-color: rgba(213, 0, 0, 0.25);
+        background-color: rgba(213, 0, 0, 0.2);
         border: 2px solid #D50000;
         border-radius: 8px;
         padding: 12px;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
+    }
+
+    /* Smart Signal Cards */
+    .smart-signal-call {
+        background: linear-gradient(135deg, rgba(0,200,83,0.3) 0%, rgba(0,100,40,0.4) 100%);
+        border: 2px solid #00E676;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    .smart-signal-put {
+        background: linear-gradient(135deg, rgba(213,0,0,0.3) 0%, rgba(100,0,0,0.4) 100%);
+        border: 2px solid #FF1744;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    .smart-signal-neutral {
+        background-color: #161B22;
+        border: 1px dashed #8B949E;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 15px;
+        text-align: center;
     }
     
     /* Badges */
@@ -80,7 +106,7 @@ spot = 24225.50
 atm_strike = round(spot / 50) * 50
 
 # Header Section
-st.title("⚡ NIFTY ATM ± 6 1-Min All Candles Flow")
+st.title("⚡ NIFTY ATM ± 6 Order Flow Engine")
 st.success(f"🟢 Dhan API Connected | Current Time: {now_ist.strftime('%I:%M:%S %p')} (IST)")
 st.caption(f"NIFTY SPOT: **₹{spot:,.2f}** | ATM STRIKE: **{atm_strike}**")
 
@@ -88,10 +114,40 @@ st.info("💡 **Sell Strength = writing volume / opposite activity volume** | �
 
 # Generating Mock Live Data for Signals
 sell_strength_curr = round(np.random.uniform(0.5, 3.2), 2)
-is_wall_broken = np.random.choice([True, False], p=[0.3, 0.7])
+is_wall_broken = np.random.choice([True, False], p=[0.25, 0.75])
 broken_strike = atm_strike + np.random.choice([-100, -50, 50, 100])
+fut_signal = np.random.choice(["SHORT_COVERING", "LONG_UNWINDING", "NEUTRAL"], p=[0.4, 0.4, 0.2])
 
-# 🚨 LIVE INDICATOR SECTION (Top Banner Alerts)
+# ⚡ SMART FLOW SIGNAL GENERATION (AI CONFIRMATION)
+if sell_strength_curr >= 2.0 and fut_signal == "SHORT_COVERING":
+    st.markdown(f"""
+        <div class="smart-signal-call">
+            <h2 style="color: #00E676; margin:0;">🚀 HIGH PROBABILITY CALL BUY SIGNAL</h2>
+            <p style="margin: 5px 0 0 0; color: #FFF; font-size: 14px;">
+                <strong>కన్ఫర్మేషన్:</strong> Put Writing బలంగా ఉంది (Sell Strength: {sell_strength_curr}x) + ఫ్యూచర్స్‌లో Short Covering నమోదైంది.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+elif sell_strength_curr <= 0.75 and fut_signal == "LONG_UNWINDING":
+    st.markdown(f"""
+        <div class="smart-signal-put">
+            <h2 style="color: #FF1744; margin:0;">📉 HIGH PROBABILITY PUT BUY SIGNAL</h2>
+            <p style="margin: 5px 0 0 0; color: #FFF; font-size: 14px;">
+                <strong>కన్ఫర్మేషన్:</strong> Call Writing ఆధిపత్యం (Sell Strength: {sell_strength_curr}x) + ఫ్యూచర్స్‌లో Long Unwinding నమోదైంది.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <div class="smart-signal-neutral">
+            <h4 style="color: #8B949E; margin:0;">⚖️ SMART FLOW SIGNAL: NEUTRAL / CONSOLIDATION</h4>
+            <p style="margin: 3px 0 0 0; color: #8B949E; font-size: 12px;">
+                మార్కెట్‌లో ప్రస్తుతం స్పష్టమైన అలైన్‌మెంట్ లేదు. బ్రేక్‌అవుట్ లేదా క్లియర్ కన్ఫర్మేషన్ కోసం వేచి చూడండి.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+# 🚨 LIVE INDICATORS
 if is_wall_broken:
     st.markdown(f"""
         <div class="alert-wall-box">
