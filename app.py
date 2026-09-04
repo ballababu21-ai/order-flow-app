@@ -104,25 +104,21 @@ if is_explosion:
     </div>
     """, unsafe_allow_html=True)
 
-# Sidebar Menu for Navigation (Mobile Friendly)
-st.sidebar.title("⚡ Control & Navigation")
-menu = st.sidebar.radio("Select View", [
+# Horizontal Tabs
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "📊 Flow Cards", 
     "🎯 Strike Flow", 
     "📈 Futures & OI",
     "📍 Volume POC",
     "⏳ MTF Matrix",
-    "🏆 Win Probability",
+    "🏆 Win Prob",
     "🔬 Pro Analytics",
     "⚡ IV & Skew",
-    "🔮 GEX & Zero Gamma",
-    "🚨 OI Trap Detector"
+    "🔮 GEX & Zero",
+    "🚨 OI Trap"
 ])
 
-auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
-
-# Section Rendering based on Sidebar Menu
-if menu == "📊 Flow Cards":
+with tab1:
     st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
     for i in range(4):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
@@ -150,13 +146,13 @@ if menu == "📊 Flow Cards":
         </div>
         """, unsafe_allow_html=True)
 
-elif menu == "🎯 Strike Flow":
+with tab2:
     st.subheader("🎯 Specific Strike Imbalance")
     strikes = [atm_strike + (i * 50) for i in range(-4, 5)]
     strike_rows = [{"Strike": s, "CE Vol": f"{np.random.randint(10, 80)}L", "PE Vol": f"{np.random.randint(10, 80)}L", "Ratio": round(np.random.uniform(0.6, 1.8), 2)} for s in strikes]
     st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
 
-elif menu == "📈 Futures & OI":
+with tab3:
     st.subheader("📈 Futures & Open Interest (OI) Classification")
     oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
     st.markdown(f"""
@@ -175,7 +171,7 @@ elif menu == "📈 Futures & OI":
     else:
         st.warning("🟠 **Price Down + OI Down:** లాంగ్ పొజిషన్స్ అన్‌వైండ్ అవుతున్నాయి (Profit Booking / Weakness).")
 
-elif menu == "📍 Volume POC":
+with tab4:
     st.subheader("📍 Volume POC (Point of Control)")
     st.markdown(f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 12px;">
@@ -184,7 +180,7 @@ elif menu == "📍 Volume POC":
     </div>
     """, unsafe_allow_html=True)
 
-elif menu == "⏳ MTF Matrix":
+with tab5:
     st.subheader("⏳ Multi-Timeframe Matrix")
     mtf_data = [
         {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
@@ -193,7 +189,7 @@ elif menu == "⏳ MTF Matrix":
     ]
     st.dataframe(pd.DataFrame(mtf_data), use_container_width=True, hide_index=True)
 
-elif menu == "🏆 Win Probability":
+with tab6:
     st.subheader("🏆 Strike Ranking & Win Probability")
     strikes_list = [atm_strike + (i * 50) for i in range(-3, 4)]
     for s in strikes_list:
@@ -214,18 +210,18 @@ elif menu == "🏆 Win Probability":
         </div>
         """, unsafe_allow_html=True)
 
-elif menu == "🔬 Pro Analytics":
+with tab7:
     st.subheader("🔬 Institutional Pro Analytics & PCR")
     col1, col2, col3 = st.columns(3)
     with col1: st.metric(label="Live PCR", value="1.14", delta="+0.08")
     with col2: st.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
     with col3: st.metric(label="Flow Score", value="78 / 100", delta="Strong")
 
-elif menu == "⚡ IV & Skew":
+with tab8:
     st.subheader("⚡ IV & Skew Monitor")
     st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
 
-elif menu == "🔮 GEX & Zero Gamma":
+with tab9:
     st.subheader("🔮 Gamma Exposure (GEX) & Zero Gamma Level")
     st.markdown(f"""
         <div class="gex-card">
@@ -248,7 +244,7 @@ elif menu == "🔮 GEX & Zero Gamma":
     else:
         st.error("🔴 **డెల్టా డైవర్జెన్స్ (Fake Breakout):** ఫేక్ బ్రేక్‌అవుట్!")
 
-elif menu == "🚨 OI Trap Detector":
+with tab10:
     st.subheader("🚨 OI Trap Detector (Short/Long Traps)")
     st.markdown("""
         <div class="trap-card">
@@ -262,7 +258,9 @@ elif menu == "🚨 OI Trap Detector":
     ]
     st.dataframe(pd.DataFrame(trap_rows), use_container_width=True, hide_index=True)
 
-# Auto Refresh Control
+# Auto Refresh Control in Sidebar
+st.sidebar.title("⚡ Control Panel")
+auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
 if auto:
     time.sleep(5)
     st.rerun()
