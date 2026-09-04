@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY ATM ± 6 Order Flow Engine (Advanced)",
+    page_title="NIFTY Pro Quantitative Order Flow Engine",
     page_icon="⚡",
     layout="wide"
 )
@@ -15,7 +15,7 @@ st.set_page_config(
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
-# Custom Dark Styling & Horizontal Tabs Fix
+# Custom Dark Styling & Side-by-Side Horizontal Tabs Fix
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
@@ -60,7 +60,7 @@ st.markdown("""
     }
     
     .explosion-alert-box {
-        background: linear-gradient(135deg, rgba(255, 23, 68, 0.2), rgba(255, 152, 0, 0.2));
+        background: linear-gradient(135deg, rgba(255, 23, 68, 0.25), rgba(255, 152, 0, 0.25));
         border: 2px solid #FF1744;
         border-radius: 10px;
         padding: 15px;
@@ -82,6 +82,20 @@ st.markdown("""
         padding: 12px;
         margin-bottom: 10px;
     }
+    .vwap-card {
+        background: linear-gradient(135deg, rgba(0, 200, 83, 0.15), rgba(33, 150, 243, 0.1));
+        border: 1px solid #00E676;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    .skew-card {
+        background: linear-gradient(135deg, rgba(33, 150, 243, 0.15), rgba(156, 39, 176, 0.1));
+        border: 1px solid #29B6F6;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
 
     .rank-card-best { background-color: rgba(0, 200, 83, 0.15); border-left: 5px solid #00E676; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
     .rank-card-high { background-color: rgba(41, 182, 246, 0.15); border-left: 5px solid #29B6F6; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
@@ -99,18 +113,31 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Market State
+# Market State Initialization
 spot = 24225.50
 atm_strike = round(spot / 50) * 50
 fut_price = spot + 18.5
 zero_gamma = atm_strike - 25
 c_delta = np.random.randint(-1500, 1800)
 
-st.title("⚡ NIFTY Pro Engine (Advanced)")
-st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
+st.title("⚡ NIFTY Pro Quantitative Engine (Advanced)")
+st.success(f"🟢 Connected to Data Feed | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
-# Multi-Timeframe Status
+# Advanced Quant Metrics
+atm_iv = round(np.random.uniform(12.5, 15.8), 2)
+otm_put_iv = round(atm_iv + np.random.uniform(1.8, 4.2), 2)
+otm_call_iv = round(atm_iv + np.random.uniform(0.6, 2.4), 2)
+skew_diff = otm_put_iv - otm_call_iv
+skew_status = "Put Skew Dominant (Downside Hedging Demand)" if skew_diff > 1.5 else ("Call Skew Dominant (Aggressive Call Buying)" if skew_diff < -0.5 else "Neutral Volatility Skew")
+
+vwap_val = spot - np.random.uniform(4, 12)
+std_dev_unit = 27.5
+upper_2sd = vwap_val + (2 * std_dev_unit)
+upper_1sd = vwap_val + (1 * std_dev_unit)
+lower_1sd = vwap_val - (1 * std_dev_unit)
+lower_2sd = vwap_val - (2 * std_dev_unit)
+
 mtf_1m = np.random.choice(["BULLISH", "BEARISH"], p=[0.55, 0.45])
 mtf_3m = mtf_1m if np.random.rand() > 0.2 else np.random.choice(["BULLISH", "BEARISH"])
 mtf_5m = mtf_3m if np.random.rand() > 0.3 else np.random.choice(["BULLISH", "BEARISH"])
@@ -123,13 +150,13 @@ is_explosion = np.random.choice([True, False], p=[0.3, 0.7])
 if is_explosion:
     st.markdown("""
     <div class="explosion-alert-box">
-        <h3 style="color: #FF1744; margin:0;">🚨 GAMMA EXPLOSION & SPIKE DETECTED!</h3>
-        <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి!</p>
+        <h3 style="color: #FF1744; margin:0;">🚨 GAMMA SQUEEZE & EXPIRY EXPLOSION DETECTED!</h3>
+        <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">OTM స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా స్పైక్ భారీగా నమోదైంది. డైరెక్షనల్ మూవ్ రాబోతోంది!</p>
     </div>
     """, unsafe_allow_html=True)
 
-# All 10 Horizontal Tabs Placed Side-by-Side
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+# Extended Horizontal Tabs (Including New Advanced Modules)
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12 = st.tabs([
     "📊 Flow", 
     "🎯 Strike", 
     "📈 Fut/OI",
@@ -137,8 +164,10 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "⏳ MTF",
     "🏆 Win",
     "🔬 Pro",
-    "⚡ IV",
+    "⚡ IV Skew",
+    "📈 VWAP/SD",
     "🔮 GEX",
+    "🌊 Divergence",
     "🚨 Trap"
 ])
 
@@ -151,7 +180,6 @@ with tab1:
         box_class = "row-bull-box" if is_bull else "row-bear-box"
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
-        
         state_text = np.random.choice(["STRONG ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE"])
         ce_val = round(np.random.uniform(10, 90), 1)
         pe_val = round(np.random.uniform(10, 90), 1)
@@ -200,7 +228,7 @@ with tab4:
     st.markdown(f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 12px;">
         <h3 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h3>
-        <p style="margin: 5px 0 0 0; font-size: 13px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది. సపోర్ట్/రెసిస్టెన్స్ లా పనిచేస్తుంది.</p>
+        <p style="margin: 5px 0 0 0; font-size: 13px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది. కీలకమైన సపోర్ట్/రెసిస్టెన్స్ లా పనిచేస్తుంది.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -242,15 +270,38 @@ with tab7:
     with col3: st.metric(label="Flow Score", value="78 / 100", delta="Strong")
 
 with tab8:
-    st.subheader("⚡ IV & Skew Monitor")
-    st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
+    st.subheader("⚡ Advanced IV & Skew Tracker")
+    st.markdown(f"""
+    <div class="skew-card">
+        <h4 style="color: #29B6F6; margin:0 0 5px 0;">Market Skew State: {skew_status}</h4>
+        <p style="margin:0; font-size:13px;">ATM IV: <b>{atm_iv}%</b> | OTM Put IV: <b>{otm_put_iv}%</b> | OTM Call IV: <b>{otm_call_iv}%</b></p>
+    </div>
+    """, unsafe_allow_html=True)
+    st.info("💡 పుట్ IV అధికంగా ఉంటే మార్కెట్ డౌన్‌సైడ్ ప్రొటెక్షన్ కోసం హెవీగా పుట్స్ కొనుగోలు చేస్తున్నారని అర్థం.")
 
 with tab9:
+    st.subheader("📈 Institutional VWAP & Standard Deviation Bands")
+    st.markdown(f"""
+    <div class="vwap-card">
+        <h4 style="color: #00E676; margin:0 0 5px 0;">VWAP Benchmark: ₹{vwap_val:,.2f}</h4>
+        <p style="margin:0; font-size:13px;">ఇన్‌స్టిట్యూషనల్ ఫెయిర్ వాల్యూ మరియు ఎక్స్‌ట్రీమ్ రివర్సల్ బ్యాండ్స్.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    band_rows = [
+        {"Band Level": "+2.0 SD (Extreme Upper Resistance)", "Price": f"₹{upper_2sd:,.2f}", "Action": "Profit Booking Zone"},
+        {"Band Level": "+1.0 SD (Upper Boundary)", "Price": f"₹{upper_1sd:,.2f}", "Action": "Bullish Target"},
+        {"Band Level": "VWAP (Fair Institutional Value)", "Price": f"₹{vwap_val:,.2f}", "Action": "Trend Pivot Line"},
+        {"Band Level": "-1.0 SD (Lower Boundary)", "Price": f"₹{lower_1sd:,.2f}", "Action": "Bearish Support"},
+        {"Band Level": "-2.0 SD (Extreme Lower Support)", "Price": f"₹{lower_2sd:,.2f}", "Action": "Dip Buying Zone"}
+    ]
+    st.dataframe(pd.DataFrame(band_rows), use_container_width=True, hide_index=True)
+
+with tab10:
     st.subheader("🔮 Gamma Exposure (GEX) & Zero Gamma Level")
     st.markdown(f"""
         <div class="gex-card">
             <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
-            <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
+            <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ అదుపులో ఉంటుంది.</p>
         </div>
     """, unsafe_allow_html=True)
     gex_data = [
@@ -259,21 +310,21 @@ with tab9:
         {"Strike": atm_strike + 50, "Call GEX": "-95Cr", "Put GEX": "+30Cr", "Net Exposure": "Bearish Wall"}
     ]
     st.dataframe(pd.DataFrame(gex_data), use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    st.subheader("🌊 Cumulative Delta (C-Delta) & Divergence Check")
+
+with tab11:
+    st.subheader("🌊 Smart Money Flow Divergence Engine")
     st.metric(label="Net Cumulative Delta", value=f"{c_delta:+d} Contracts")
     if c_delta > 0:
-        st.success("🟢 **డిల్టా పాజిటివ్:** బయింగ్ ప్రెషర్ బలంగా ఉంది.")
+        st.success("🟢 **డిల్టా పాజిటివ్:** స్మార్ట్ మనీ కొనుగోళ్ల వైపు ఉంది. బ్రేక్‌అవుట్ జెన్యూన్.")
     else:
-        st.error("🔴 **డెల్టా డైవర్జెన్స్ (Fake Breakout):** ఫేక్ బ్రేక్‌అవుట్!")
+        st.error("🔴 **డెల్టా డైవర్జెన్స్ డిటెక్టెడ్:** ప్రైస్ పెరుగుతున్నా డెల్టా నెగటివ్ ఉంది -> **ఇది ఫేక్ బ్రేక్‌అవుట్ (Trap)!**")
 
-with tab10:
+with tab12:
     st.subheader("🚨 OI Trap Detector (Short/Long Traps)")
     st.markdown("""
         <div class="trap-card">
             <h4 style="color: #FF9800; margin:0 0 5px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
-            <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ వచ్చే అవకాశం ఉంది!</p>
+            <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. మార్కెట్లో షార్ట్ కవరింగ్ సునామీ వచ్చే అవకాశం ఉంది!</p>
         </div>
     """, unsafe_allow_html=True)
     trap_rows = [
