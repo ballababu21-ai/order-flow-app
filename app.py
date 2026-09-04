@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import math
 import random
 import time
@@ -48,7 +47,6 @@ st.markdown("""
     
     .row-bull-box { background-color: rgba(0, 200, 83, 0.12); border: 1px solid #00C853; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
     .row-bear-box { background-color: rgba(213, 0, 0, 0.12); border: 1px solid #D50000; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
-    .explosion-alert-box { background: linear-gradient(135deg, rgba(255, 23, 68, 0.2), rgba(255, 152, 0, 0.2)); border: 2px solid #FF1744; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 12px; }
     .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
     .trap-card { background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(213, 0, 0, 0.15)); border: 1px solid #FF9800; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
     .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
@@ -57,7 +55,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Dhan API Credentials Setup (Streamlit Secrets లేదా డైరెక్ట్ వేరియబుల్స్)
+# Dhan API Credentials Setup
 CLIENT_ID = st.secrets.get("DHAN_CLIENT_ID", "YOUR_CLIENT_ID")
 ACCESS_TOKEN = st.secrets.get("DHAN_ACCESS_TOKEN", "YOUR_ACCESS_TOKEN")
 
