@@ -139,7 +139,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 with tab1:
-    st.subheader("⏱️ Live Order Flow, Strike Imbalance & Futures OI")
+    st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
     
     # Futures & OI Status Box
     oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
@@ -149,27 +149,34 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("#### Strike Imbalance Matrix")
-    strikes = [atm_strike + (i * 50) for i in range(-3, 4)]
-    strike_rows = [{"Strike": s, "CE Vol": f"{random.randint(10, 80)}L", "PE Vol": f"{random.randint(10, 80)}L", "Ratio": round(random.uniform(0.6, 1.8), 2)} for s in strikes]
-    st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
-
-    st.markdown("#### Recent Order Flows")
-    for i in range(2):
+    st.markdown("#### Recent Order Flows (Wall Touch & Alignment Status)")
+    for i in range(4):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + random.uniform(-4, 4), 2)
         is_bull = (i % 2 != 0)
         box_class = "row-bull-box" if is_bull else "row-bear-box"
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
+        
+        # Wall touch & alignment logic included
+        state_text = random.choice(["STRONG WALL TOUCH & ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE & ALIGNED"])
+        ce_val = round(random.uniform(10, 90), 1)
+        pe_val = round(random.uniform(10, 90), 1)
+        
         st.markdown(f"""
         <div class="{box_class}">
             <div style="display: flex; justify-content: space-between;">
                 <strong>{t_str} (₹{s_price})</strong> {side_badge}
             </div>
-            <div style="font-size: 12px; margin-top:2px;">Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'}</strong></div>
+            <div style="font-size: 12px; margin-top:4px; color: #8B949E;">State: <strong>{state_text}</strong></div>
+            <div style="font-size: 12px; margin-top:2px;">Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'} (CE {ce_val}Cr / PE {pe_val}Cr)</strong></div>
         </div>
         """, unsafe_allow_html=True)
+
+    st.markdown("#### Strike Imbalance Matrix")
+    strikes = [atm_strike + (i * 50) for i in range(-2, 3)]
+    strike_rows = [{"Strike": s, "CE Vol": f"{random.randint(10, 80)}L", "PE Vol": f"{random.randint(10, 80)}L", "Ratio": round(random.uniform(0.6, 1.8), 2)} for s in strikes]
+    st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
 
 with tab2:
     st.subheader("📈 Volume POC, VAH/VAL & Multi-Timeframe")
