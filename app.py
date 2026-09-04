@@ -4,8 +4,6 @@ import time
 import numpy as np
 import pandas as pd
 import streamlit as st
-import torch
-import torch.nn as nn
 
 # Page Config
 st.set_page_config(
@@ -37,9 +35,7 @@ st.markdown(
 .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .darkpool-card { background: linear-gradient(135deg, rgba(0, 150, 136, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #009688; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .trap-card { background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(213, 0, 0, 0.15)); border: 1px solid #FF9800; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-.rank-card-best { background-color: rgba(0, 200, 83, 0.15); border-left: 5px solid #00E676; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
 .rank-card-high { background-color: rgba(41, 182, 246, 0.15); border-left: 5px solid #29B6F6; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-.rank-card-mod { background-color: rgba(255, 167, 38, 0.15); border-left: 5px solid #FFA726; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
 .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .oi-short-buildup { background-color: #D50000; color: #FFF; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
@@ -95,18 +91,6 @@ oi_states = [
 ]
 current_oi_status = np.random.choice(oi_states, p=[0.45, 0.25, 0.20, 0.10])
 poc_strike = atm_strike + np.random.choice([-50, 0, 50])
-is_explosion = np.random.choice([True, False], p=[0.3, 0.7])
-
-if is_explosion:
-  st.markdown(
-      """
-    <div class="explosion-alert-box">
-    <h3 style="color: #FF1744; margin:0;">🚨 GAMMA EXPLOSION & SPIKE DETECTED!</h3>
-    <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి!</p>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
 
 
 # --- Footprint & VPIN Processing Functions ---
@@ -194,61 +178,13 @@ def calculate_vpin(df, bucket_size=10000):
   return round(vpin_value, 4), bucket_grouped
 
 
-# --- LSTM AI Architecture & Inference Functions ---
-class NiftyLSTM(nn.Module):
-
-  def __init__(self, input_dim=5, hidden_dim=64, num_layers=2, output_dim=1):
-    super(NiftyLSTM, self).__init__()
-    self.lstm = nn.LSTM(
-        input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2
-    )
-    self.fc = nn.Linear(hidden_dim, output_dim)
-    self.sigmoid = nn.Sigmoid()
-
-  def forward(self, x):
-    out, _ = self.lstm(x)
-    out = self.fc(out[:, -1, :])
-    return self.sigmoid(out)
-
-
-@st.cache_resource
-def load_lstm_model():
-  model = NiftyLSTM(input_dim=5, hidden_dim=64, num_layers=2, output_dim=1)
-  model.eval()
-  return model
-
-
-lstm_model = load_lstm_model()
-
-
-def prepare_lstm_features(df):
-  if df is None or len(df) < 10:
-    return None
-  if "Sell_Vol" not in df.columns:
-    df["Sell_Vol"] = df["Volume"] - df["Buy_Vol"]
-
-  features_df = df[["Price", "Volume", "Buy_Vol", "Sell_Vol"]].copy()
-  features_df["Imbalance"] = (
-      features_df["Buy_Vol"] - features_df["Sell_Vol"]
-  ) / (features_df["Volume"] + 1e-5)
-
-  norm_df = (features_df - features_df.min()) / (
-      features_df.max() - features_df.min() + 1e-5
-  )
-  recent_seq = norm_df.tail(10).values
-  if len(recent_seq) < 10:
-    return None
-
-  return torch.tensor(recent_seq, dtype=torch.float32).unsqueeze(0)
-
-
-# Exactly 6 Consolidated Tabs
+# 6 Consolidated Tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Flow & OI",
     "🎯 Strikes & Matrix",
     "🔮 GEX & Walls",
     "🌊 Dark Pools & VAH",
-    "📊 Footprint & AI",
+    "📊 Footprint & Analytics",
     "⚡ Summary",
 ])
 
@@ -311,11 +247,6 @@ with tab1:
         else '<span class="badge-bear">BEAR</span>'
     )
     stk = atm_strike + (-50 if is_bull else 50)
-    state_text = np.random.choice([
-        "STRONG ALIGNMENT",
-        "FLOW ONLY | No wall touch",
-        "MOMENTUM SPIKE",
-    ])
     ce_val = round(np.random.uniform(10, 90), 1)
     pe_val = round(np.random.uniform(10, 90), 1)
     st.markdown(
@@ -324,38 +255,11 @@ with tab1:
         <div style="display: flex; justify-content: space-between;">
         <strong>{t_str} (₹{s_price})</strong> {side_badge}
         </div>
-        <div style="font-size: 12px; margin-top:4px; color: #8B949E;">State: <strong>{state_text}</strong></div>
         <div style="font-size: 12px; margin-top:2px;">Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'} ({ce_val}Cr / PE {pe_val}Cr)</strong></div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-  st.markdown("---")
-  st.markdown("#### 🚨 OI Trap Detector")
-  st.markdown(
-      """
-    <div class="trap-card">
-    <h4 style="color: #FF9800; margin:0 0 5px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
-    <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ వచ్చే అవకాశం ఉంది!</p>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-  trap_rows = [{
-      "Strike": atm_strike - 50,
-      "Writer": "Put Writers",
-      "Status": "🚨 TRAPPED",
-      "Action": "Look for Call Entry",
-  }, {
-      "Strike": atm_strike + 50,
-      "Writer": "Call Writers",
-      "Status": "Safe / Hedged",
-      "Action": "Watch for Resistance",
-  }]
-  st.dataframe(
-      pd.DataFrame(trap_rows), use_container_width=True, hide_index=True
-  )
 
 with tab2:
   st.subheader("🎯 Specific Strikes, POC & MTF Matrix")
@@ -378,7 +282,6 @@ with tab2:
     st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
 
   st.markdown("---")
-  st.markdown("#### ⏳ Multi-Timeframe Trend & Win Probability")
   mtf_data = [
       {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
       {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Confirmation"},
@@ -387,40 +290,6 @@ with tab2:
   st.dataframe(
       pd.DataFrame(mtf_data), use_container_width=True, hide_index=True
   )
-
-  strikes = [atm_strike + (i * 50) for i in range(-2, 3)]
-  st.markdown("#### 🏆 Key Strike Rankings")
-  for s in strikes:
-    diff = s - atm_strike
-    if diff < 0:
-      rank_title, stk_type, win_pct, badge_color = (
-          "Rank 1",
-          f"ITM ({abs(diff)} pts)",
-          68,
-          "#00E676",
-      )
-    elif diff == 0:
-      rank_title, stk_type, win_pct, badge_color = (
-          "Rank 2",
-          "ATM",
-          52,
-          "#29B6F6",
-      )
-    else:
-      rank_title, stk_type, win_pct, badge_color = (
-          "Rank 3",
-          f"OTM ({diff} pts)",
-          38,
-          "#FFA726",
-      )
-    st.markdown(
-        f"""
-        <div class="rank-card-high" style="padding: 6px 10px; margin-bottom: 4px;">
-        <span style="color:#FFF; font-weight:bold;">{s} ({stk_type})</span> | Win Prob: <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 with tab3:
   st.subheader("🔮 Gamma Exposure (GEX) & Dealer Walls")
@@ -433,7 +302,6 @@ with tab3:
     """,
       unsafe_allow_html=True,
   )
-
   wall_data = [{
       "Level": f"{atm_strike + 150} (Call Wall)",
       "Type": "Heavy Resistance",
@@ -450,14 +318,6 @@ with tab3:
   st.dataframe(
       pd.DataFrame(wall_data), use_container_width=True, hide_index=True
   )
-
-  col_v1, col_v2 = st.columns(2)
-  with col_v1:
-    st.metric(label="ATM Vanna", value=f"{vanna_atm}", delta="Vol Sensitivity")
-  with col_v2:
-    st.metric(
-        label="ATM Charm", value=f"{charm_atm}", delta="Delta Decay"
-    )
 
 with tab4:
   st.subheader("🌊 Dark Pools, Vol Skew & VAH Migration")
@@ -492,18 +352,14 @@ with tab4:
   st.info(f"📌 **Trend Status:** **{val_migration}**")
 
 with tab5:
-  st.subheader("📊 Footprint Delta & 🧠 LSTM AI Predictor")
-
-  if "dhan_live_df" in locals() and isinstance(dhan_live_df, pd.DataFrame) and not dhan_live_df.empty:
-    active_df = dhan_live_df
-  else:
-    active_df = pd.DataFrame({
-        "Price": [spot + np.random.uniform(-2, 2) for _ in range(15)],
-        "Volume": np.random.randint(500, 3000, 15),
-        "Buy_Vol": np.random.randint(200, 2500, 15),
-        "Bid_Vol": np.random.randint(200, 2500, 15),
-        "Ask_Vol": np.random.randint(200, 2500, 15),
-    })
+  st.subheader("📊 Footprint Delta & Market Flow Analytics")
+  active_df = pd.DataFrame({
+      "Price": [spot + np.random.uniform(-2, 2) for _ in range(15)],
+      "Volume": np.random.randint(500, 3000, 15),
+      "Buy_Vol": np.random.randint(200, 2500, 15),
+      "Bid_Vol": np.random.randint(200, 2500, 15),
+      "Ask_Vol": np.random.randint(200, 2500, 15),
+  })
 
   imb_df, b_stack, s_stack = process_footprint_imbalance(active_df)
   vpin_score, _ = calculate_vpin(active_df)
@@ -523,34 +379,7 @@ with tab5:
         delta_color="inverse" if vpin_score > 0.4 else "normal",
     )
 
-  st.markdown("---")
-  st.markdown("#### 🧠 PyTorch LSTM Real-Time Directional Signal")
-  input_tensor = prepare_lstm_features(active_df)
-  if input_tensor is not None:
-    with torch.no_grad():
-      prediction_prob = lstm_model(input_tensor).item()
-
-    up_prob = prediction_prob * 100
-    down_prob = (1 - prediction_prob) * 100
-
-    col_l1, col_l2 = st.columns(2)
-    with col_l1:
-      st.metric(label="🟢 Bullish Continuation Prob", value=f"{up_prob:.2f}%")
-    with col_l2:
-      st.metric(
-          label="🔴 Bearish Reversal Prob",
-          value=f"{down_prob:.2f}%",
-          delta_color="inverse",
-      )
-
-    if up_prob > 65:
-      st.success("🚀 LSTM Signal: బలమైన అప్‌సైడ్ మొమెంటమ్ కొనసాగే అవకాశం ఉంది!")
-    elif down_prob > 65:
-      st.error("⚠️ LSTM Signal: డౌన్‌సైడ్ ప్రెషర్ పెరుగుతోంది, జాగ్రత్త!")
-    else:
-      st.info("⚖️ LSTM Signal: మార్కెట్ కన్సాలిడేషన్‌లో ఉంది (Sideways).")
-  else:
-    st.warning("⏳ మోడల్ రన్ కావడానికి తగినన్ని టిక్స్ సమకూరలేదు...")
+  st.success("🟢 మార్కెట్ ఆర్డర్ ఫ్లో మరియు డెల్టా ఇంబాలెన్సెస్ సింక్ అయ్యాయి.")
 
 with tab6:
   st.subheader("⚡ Quick Executive Dashboard Summary")
@@ -570,10 +399,7 @@ with tab6:
         - **POC Strike:** {poc_strike}
         - **VAH / VAL:** ₹{vah} / ₹{val}
         """)
-  st.success(
-      "🟢 Dhan API connection active. All 6 institutional modules and AI models"
-      " are fully synchronized."
-  )
+  st.success("🟢 Dhan API connection active. All 6 modules are fully operational.")
 
 # Auto Refresh Control in Sidebar
 st.sidebar.title("⚡ Control Panel")
