@@ -105,7 +105,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Credentials & Market State
+# Market State
 spot = 24225.50
 atm_strike = round(spot / 50) * 50
 fut_price = spot + 18.5
@@ -134,7 +134,7 @@ if is_explosion:
     </div>
     """, unsafe_allow_html=True)
 
-# Tabs including Pro Advanced Analytics
+# Tabs definition (Cleaned up, single declaration)
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "📊 Flow Cards", 
     "🎯 Strike Flow", 
@@ -149,7 +149,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
 ])
 
 with tab1:
-    st.subheader("⏱️ Live Order Flow")
+    st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
     for i in range(4):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + np.random.uniform(-4, 4), 2)
@@ -157,9 +157,12 @@ with tab1:
         box_class = "row-bull-box" if is_bull else "row-bear-box"
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
+        
+        # Proper State Assignment avoiding duplication
         state_text = np.random.choice(["STRONG ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE"])
         ce_val = round(np.random.uniform(10, 90), 1)
         pe_val = round(np.random.uniform(10, 90), 1)
+        
         st.markdown(f"""
         <div class="{box_class}">
             <div style="display: flex; justify-content: space-between;">
@@ -254,7 +257,7 @@ with tab9:
     st.markdown(f"""
         <div class="gex-card">
             <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
-            <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది. బిగ్ ప్లేయర్స్ హెడ్జింగ్ జోన్.</p>
+            <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
         </div>
     """, unsafe_allow_html=True)
     gex_data = [
@@ -268,20 +271,20 @@ with tab9:
     st.subheader("🌊 Cumulative Delta (C-Delta) & Divergence Check")
     st.metric(label="Net Cumulative Delta", value=f"{c_delta:+d} Contracts")
     if c_delta > 0:
-        st.success("🟢 **డిల్టా పాజిటివ్:** బయింగ్ ప్రెషర్ బలంగా ఉంది. ప్రైస్ బ్రేక్‌అవుట్ జెన్యూన్.")
+        st.success("🟢 **డిల్టా పాజిటివ్:** బయింగ్ ప్రెషర్ బలంగా ఉంది.")
     else:
-        st.error("🔴 **డెల్టా డైవర్జెన్స్ (Fake Breakout):** ప్రైస్ పైకి వెళ్తున్నప్పటికీ డెల్టా నెగటివ్‌గా ఉంది. ఫేక్ బ్రేక్‌అవుట్!")
+        st.error("🔴 **డెల్టా డైవర్జెన్స్ (Fake Breakout):** ఫేక్ బ్రేక్‌అవుట్!")
 
 with tab10:
     st.subheader("🚨 OI Trap Detector (Short/Long Traps)")
     st.markdown("""
         <div class="trap-card">
             <h4 style="color: #FF9800; margin:0 0 5px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
-            <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. మార్కెట్ షార్ట్ కవరింగ్ ఇచ్చి వేగంగా పైకి వెళ్లే అవకాశం ఉంది!</p>
+            <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ వచ్చే అవకాశం ఉంది!</p>
         </div>
     """, unsafe_allow_html=True)
     trap_rows = [
-        {"Strike": atm_strike - 50, "Writer": "Put Writers", "Status": "🚨 TRAPPED (Short Covering Expected)", "Action": "Look for Call Entry"},
+        {"Strike": atm_strike - 50, "Writer": "Put Writers", "Status": "🚨 TRAPPED", "Action": "Look for Call Entry"},
         {"Strike": atm_strike + 50, "Writer": "Call Writers", "Status": "Safe / Hedged", "Action": "Watch for Resistance"}
     ]
     st.dataframe(pd.DataFrame(trap_rows), use_container_width=True, hide_index=True)
