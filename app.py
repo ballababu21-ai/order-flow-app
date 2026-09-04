@@ -63,6 +63,17 @@ st.markdown("""
         text-align: center;
     }
 
+    /* Gamma Explosion Alert Box */
+    .explosion-alert-box {
+        background: linear-gradient(135deg, rgba(255, 23, 68, 0.2), rgba(255, 152, 0, 0.2));
+        border: 2px solid #FF1744;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 12px;
+        animation: pulse 1.5s infinite;
+    }
+
     /* Strike Cards Styling */
     .rank-card-best {
         background-color: rgba(0, 200, 83, 0.15);
@@ -117,7 +128,7 @@ spot = 24225.50
 atm_strike = round(spot / 50) * 50
 fut_price = spot + 18.5
 
-st.title("⚡ NIFTY Pro Engine (MTF + OI + POC)")
+st.title("⚡ NIFTY Pro Engine (MTF + OI + IV Skew)")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
@@ -130,10 +141,21 @@ mtf_5m = mtf_3m if np.random.rand() > 0.3 else np.random.choice(["BULLISH", "BEA
 oi_states = ["LONG BUILDUP", "SHORT COVERING", "SHORT BUILDUP", "LONG UNWINDING"]
 current_oi_status = np.random.choice(oi_states, p=[0.45, 0.25, 0.20, 0.10])
 
-# Volume POC (Point of Control) calculation simulation
+# Volume POC calculation simulation
 poc_strike = atm_strike + np.random.choice([-50, 0, 50])
 
-# ⚡ MULTI-TIMEFRAME CONFLUENCE BANNER
+# Gamma Explosion Detector Simulation
+is_explosion = np.random.choice([True, False], p=[0.3, 0.7])
+
+if is_explosion:
+    st.markdown("""
+        <div class="explosion-alert-box">
+            <h3 style="color: #FF1744; margin:0;">🚨 GAMMA EXPLOSION & SPIKE DETECTED!</h3>
+            <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి. బిగ్ మూవ్ వచ్చే ఛాన్స్ ఉంది!</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+# Multi-Timeframe Confluence Banner
 if mtf_1m == "BULLISH" and mtf_3m == "BULLISH" and mtf_5m == "BULLISH":
     st.markdown("""
         <div class="mtf-box-bull">
@@ -158,15 +180,16 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-# Tabs including Pro Analytics
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+# Tabs including Pro Analytics & IV Skew
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 Flow Cards", 
     "🎯 Strike Flow", 
     "📈 Futures & OI",
     "📍 Volume POC",
     "⏳ MTF Matrix",
     "🏆 Win Probability",
-    "🔬 Pro Analytics"
+    "🔬 Pro Analytics",
+    "⚡ IV & Skew"
 ])
 
 with tab1:
@@ -206,7 +229,6 @@ with tab2:
 
 with tab3:
     st.subheader("📈 Futures & Open Interest (OI) Classification")
-    
     oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
     
     st.markdown(f"""
@@ -286,7 +308,6 @@ with tab6:
 
 with tab7:
     st.subheader("🔬 Institutional Pro Analytics & PCR")
-    
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric(label="Live PCR (Put-Call Ratio)", value="1.14", delta="+0.08 (Bullish)")
@@ -297,7 +318,6 @@ with tab7:
         
     st.markdown("---")
     st.markdown("### 📊 Advanced Order Flow Imbalance (ATM ± 3)")
-    
     pro_data = [
         {"Strike": atm_strike - 100, "Call OI Chg": "+12.4L", "Put OI Chg": "-4.1L", "Imbalance": "Strong Bearish Wall"},
         {"Strike": atm_strike - 50, "Call OI Chg": "+5.2L", "Put OI Chg": "+15.8L", "Imbalance": "Bullish Accumulation"},
@@ -306,8 +326,28 @@ with tab7:
         {"Strike": atm_strike + 100, "Call OI Chg": "+25.6L", "Put OI Chg": "-6.4L", "Imbalance": "Strong Bear Wall"}
     ]
     st.dataframe(pd.DataFrame(pro_data), use_container_width=True, hide_index=True)
+
+with tab8:
+    st.subheader("⚡ Implied Volatility (IV) & Skew Monitor")
     
-    st.info("💡 **ప్రొఫెషనల్ టిప్:** పుట్ రైటింగ్ (Put Writing) భారీగా పెరిగి, కాల్ రైటింగ్ తగ్గుతుంటే మార్కెట్ పైకి వెళ్లే అవకాశాలు 80% పైగా ఉంటాయి.")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric(label="ATM Implied Volatility (IV)", value="13.45%", delta="-0.80% (Cooling Down)")
+    with col_b:
+        st.metric(label="IV Skew Status", value="Put Skew Elevated", delta="Downside Hedging Active", delta_color="inverse")
+        
+    st.markdown("---")
+    st.markdown("### 📉 Strike-wise IV Comparison (CE vs PE)")
+    
+    iv_data = [
+        {"Strike": atm_strike - 100, "Call IV": "15.2%", "Put IV": "17.8%", "Skew Bias": "PE Heavy (Bearish Fear)"},
+        {"Strike": atm_strike - 50, "Call IV": "14.1%", "Put IV": "16.0%", "Skew Bias": "Moderate Put Skew"},
+        {"Strike": atm_strike, "Call IV": "13.4%", "Put IV": "13.5%", "Skew Bias": "At-The-Money Neutral"},
+        {"Strike": atm_strike + 50, "Call IV": "12.8%", "Put IV": "14.2%", "Skew Bias": "Balanced Flow"},
+        {"Strike": atm_strike + 100, "Call IV": "12.2%", "Put IV": "15.1%", "Skew Bias": "CE Hedging"}
+    ]
+    st.dataframe(pd.DataFrame(iv_data), use_container_width=True, hide_index=True)
+    st.info("💡 **IV టిప్:** పుట్ ఆప్షన్ల వైపు IV అకస్మాత్తుగా పెరిగితే మార్కెట్లో పానిక్ సెల్లింగ్ వచ్చే అవకాశం ఉంటుంది.")
 
 # Auto Refresh
 st.sidebar.title("⚡ Control Panel")
