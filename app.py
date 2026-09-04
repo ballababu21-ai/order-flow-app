@@ -4,6 +4,7 @@ import numpy as np
 import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import streamlit.components.v1 as components
 
 st.set_page_config(
     page_title="NIFTY ATM ± 6 Order Flow Engine",
@@ -11,79 +12,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# Timezone
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
-
-# Custom CSS for Video Style Table & Exact Colors
-st.markdown("""
-    <style>
-    .stApp { background-color: #0E1117; color: #FFFFFF; }
-    
-    /* Table Styling */
-    .flow-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: monospace;
-        font-size: 13px;
-        margin-top: 10px;
-    }
-    .flow-table th {
-        background-color: #1A1D24;
-        color: #8B949E;
-        padding: 8px;
-        text-align: left;
-        border-bottom: 2px solid #30363D;
-    }
-    .flow-table td {
-        padding: 8px;
-        border-bottom: 1px solid #21262D;
-        vertical-align: top;
-    }
-    
-    /* Row Styles matching video */
-    .row-bull { background-color: rgba(0, 200, 83, 0.08); }
-    .row-bear { background-color: rgba(213, 0, 0, 0.08); }
-    
-    /* Tags matching video */
-    .tag-bull {
-        background-color: #00C853;
-        color: #000;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-weight: bold;
-        font-size: 11px;
-    }
-    .tag-bear {
-        background-color: #D50000;
-        color: #FFF;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-weight: bold;
-        font-size: 11px;
-    }
-    .tag-align {
-        background-color: #00E676;
-        color: #000;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 10px;
-        font-weight: bold;
-    }
-    
-    .text-green { color: #00E676; font-weight: bold; }
-    .text-red { color: #FF1744; font-weight: bold; }
-    .text-blue { color: #29B6F6; }
-    .text-muted { color: #8B949E; font-size: 11px; }
-    </style>
-""", unsafe_allow_html=True)
-
-# Fetch credentials
-client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
-access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
-
-spot = 24225.50
-atm_strike = round(spot / 50) * 50
 
 # Header
 st.title("⚡ NIFTY ATM ± 6 1-Min All Candles Flow")
@@ -91,72 +21,91 @@ st.caption(f"Every completed 1-minute candle is scanned independently | Current 
 
 st.info("💡 **Sell Strength = writing volume / opposite activity volume** | 🔴 **<0.75x Very Weak** | 🟢 **2.00x+ Aggressive**")
 
-# Generating Table Content
-table_html = """
-<table class="flow-table">
-    <thead>
-        <tr>
-            <th>TIME / SPOT</th>
-            <th>SIDE</th>
-            <th>STATE</th>
-            <th>WALL / OI</th>
-            <th>NEUTRALIZATION / NET</th>
-            <th>CURRENT CANDLE FLOW</th>
-            <th>PE / CE VOLUME</th>
-            <th>FUTURES CUM NEUTRALIZATION</th>
-        </tr>
-    </thead>
-    <tbody>
-"""
+# Credentials
+client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
+access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
 
+spot = 24225.50
+atm_strike = round(spot / 50) * 50
+
+# Build Clean Component HTML
+rows_html = ""
 for i in range(8):
     t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
     s_price = round(spot + np.random.uniform(-4, 4), 2)
     is_bull = (i % 2 != 0)
     
-    row_class = "row-bull" if is_bull else "row-bear"
-    side_html = '<span class="tag-bull">BULL</span>' if is_bull else '<span class="tag-bear">BEAR</span>'
-    wall_html = '<span class="tag-align">STRONG ALIGNMENT</span>' if is_bull else '<span class="text-muted">No wall touch</span>'
+    row_bg = "rgba(0, 200, 83, 0.12)" if is_bull else "rgba(213, 0, 0, 0.12)"
+    side_tag = '<span style="background:#00C853; color:#000; padding:3px 8px; border-radius:4px; font-weight:bold;">BULL</span>' if is_bull else '<span style="background:#D50000; color:#FFF; padding:3px 8px; border-radius:4px; font-weight:bold;">BEAR</span>'
+    wall_tag = '<span style="background:#00E676; color:#000; padding:2px 6px; border-radius:3px; font-size:11px; font-weight:bold;">STRONG ALIGNMENT</span>' if is_bull else '<span style="color:#8B949E; font-size:11px;">No wall touch</span>'
     
     stk = atm_strike + (-50 if is_bull else 50)
-    
     c_vol = round(np.random.uniform(1.0, 2.8), 2)
     p_vol = round(np.random.uniform(0.5, 1.9), 2)
     net_val = round(np.random.uniform(-15.0, 15.0), 2)
-    net_color = "text-green" if net_val > 0 else "text-red"
-    
+    net_color = "#00E676" if net_val > 0 else "#FF1744"
     status_title = "Short Covering" if is_bull else "Long Unwinding"
-    status_color = "text-green" if is_bull else "text-red"
+    status_color = "#00E676" if is_bull else "#FF1744"
     
-    table_html += f"""
-    <tr class="{row_class}">
-        <td><strong>{t_str}</strong><br><span class="text-muted">₹{s_price}</span></td>
-        <td>{side_html}</td>
-        <td><span class="text-muted">FLOW ONLY</span><br>{wall_html}</td>
-        <td><strong class="text-blue">{stk} {'PE' if is_bull else 'CE'}</strong><br><span class="text-muted">({c_vol}Cr / PE {p_vol}L)</span></td>
-        <td class="{net_color}"><strong>{net_val:+0.2f}L</strong><br><span class="text-muted">Directional: {round(c_vol*1.2,1)}L</span></td>
-        <td>
-            <span class="{status_color}">PE Sell: {c_vol}L</span><br>
-            <span class="text-muted">CE Buy: {p_vol}L | Unwind: {round(p_vol*0.5,1)}L</span>
+    rows_html += f"""
+    <tr style="background-color: {row_bg}; border-bottom: 1px solid #21262D;">
+        <td style="padding: 10px;"><strong>{t_str}</strong><br><span style="color:#8B949E; font-size:11px;">₹{s_price}</span></td>
+        <td style="padding: 10px;">{side_tag}</td>
+        <td style="padding: 10px;"><span style="color:#8B949E; font-size:11px;">FLOW ONLY</span><br>{wall_tag}</td>
+        <td style="padding: 10px;"><strong style="color:#29B6F6;">{stk} {'PE' if is_bull else 'CE'}</strong><br><span style="color:#8B949E; font-size:11px;">({c_vol}Cr / PE {p_vol}L)</span></td>
+        <td style="padding: 10px; color:{net_color};"><strong>{net_val:+0.2f}L</strong><br><span style="color:#8B949E; font-size:11px;">Directional: {round(c_vol*1.2,1)}L</span></td>
+        <td style="padding: 10px;">
+            <span style="color:{status_color}; font-weight:bold;">PE Sell: {c_vol}L</span><br>
+            <span style="color:#8B949E; font-size:11px;">CE Buy: {p_vol}L | Unwind: {round(p_vol*0.5,1)}L</span>
         </td>
-        <td>
-            <span class="text-blue">PE: {p_vol}L | CE: {c_vol}L</span><br>
-            <span class="text-muted">Sell Str: {round(p_vol/c_vol, 2)}x</span>
+        <td style="padding: 10px;">
+            <span style="color:#29B6F6; font-weight:bold;">PE: {p_vol}L | CE: {c_vol}L</span><br>
+            <span style="color:#8B949E; font-size:11px;">Sell Str: {round(p_vol/c_vol, 2)}x</span>
         </td>
-        <td>
-            <strong class="{status_color}">{status_title}</strong><br>
-            <span class="text-muted">Cum: {round(net_val*0.8,1)}K | Vol Str: {round(c_vol, 2)}x</span>
+        <td style="padding: 10px;">
+            <strong style="color:{status_color};">{status_title}</strong><br>
+            <span style="color:#8B949E; font-size:11px;">Cum: {round(net_val*0.8,1)}K | Vol Str: {round(c_vol, 2)}x</span>
         </td>
     </tr>
     """
 
-table_html += "</tbody></table>"
+full_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ background-color: #0E1117; color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin:0; padding:0; }}
+        table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
+        th {{ background-color: #1A1D24; color: #8B949E; padding: 10px; text-align: left; border-bottom: 2px solid #30363D; }}
+    </style>
+</head>
+<body>
+    <table>
+        <thead>
+            <tr>
+                <th>TIME / SPOT</th>
+                <th>SIDE</th>
+                <th>STATE</th>
+                <th>WALL / OI</th>
+                <th>NEUTRALIZATION / NET</th>
+                <th>CURRENT CANDLE FLOW</th>
+                <th>PE / CE VOLUME</th>
+                <th>FUTURES CUM NEUTRALIZATION</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+    </table>
+</body>
+</html>
+"""
 
-# Display Table & Tabs
+# Render via Tab Controls
 tab1, tab2, tab3 = st.tabs(["📊 1-Min Detailed Color Table", "🎯 Strike Wise Imbalance", "📈 Futures OI"])
 
 with tab1:
-    st.markdown(table_html, unsafe_allow_html=True)
+    components.html(full_html, height=500, scrolling=True)
 
 with tab2:
     st.subheader("🎯 Specific Strike Options Flow & Imbalance")
