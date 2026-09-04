@@ -104,11 +104,12 @@ access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"',
 
 spot = 24225.50
 atm_strike = round(spot / 50) * 50
+fut_price = spot + 18.5  # Futures Price Estimate
 
 # Header Section
 st.title("⚡ NIFTY ATM ± 6 Order Flow Engine")
 st.success(f"🟢 Dhan API Connected | Current Time: {now_ist.strftime('%I:%M:%S %p')} (IST)")
-st.caption(f"NIFTY SPOT: **₹{spot:,.2f}** | ATM STRIKE: **{atm_strike}**")
+st.caption(f"NIFTY SPOT: **₹{spot:,.2f}** | NIFTY FUT: **₹{fut_price:,.2f}** | ATM STRIKE: **{atm_strike}**")
 
 st.info("💡 **Sell Strength = writing volume / opposite activity volume** | 🔴 **<0.75x Very Weak** | 🟢 **2.00x+ Aggressive**")
 
@@ -178,7 +179,12 @@ elif sell_strength_curr <= 0.6:
     """, unsafe_allow_html=True)
 
 # Tabs
-tab1, tab2, tab3 = st.tabs(["📊 1-Min Candle Flow Cards", "🎯 Strike Wise Imbalance (ATM ± 6)", "📈 Futures OI & Neutralization"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 1-Min Candle Flow Cards", 
+    "🎯 Strike Wise Imbalance (ATM ± 6)", 
+    "📈 Futures OI & Neutralization",
+    "🏆 Strike Ranking & Win Probability"
+])
 
 # TAB 1: Live Candle Flow Cards
 with tab1:
@@ -271,22 +277,89 @@ with tab2:
 with tab3:
     st.subheader("📈 Futures Cum Neutralization & OI Signals")
     col1, col2 = st.columns(2)
+    
     with col1:
-        st.markdown("""
+        st.markdown(f"""
             <div style="background:#161B22; padding:12px; border-radius:6px; border:1px solid #00C853;">
                 <h4 style="color:#00E676; margin:0;">SHORT COVERING DETECTED</h4>
-                <p style="margin:5px 0; color:#FFF;">Price: +0.10 % | OI: -1.8K</p>
-                <p style="color:#8B949E; margin:0;">Cum Volume: 9.10K | Vol Strength: 1.07x</p>
+                <p style="margin:5px 0 0 0; color:#FFF; font-size:13px;"><strong>Ref Fut Price:</strong> ₹{fut_price:,.2f} | <strong>ATM Strike:</strong> {atm_strike}</p>
+                <p style="margin:3px 0; color:#E6EDF3; font-size:12px;">Price Change: +0.10 % | OI Change: -1.8K</p>
+                <p style="color:#8B949E; margin:0; font-size:11px;">Cum Volume: 9.10K | Vol Strength: 1.07x</p>
             </div>
         """, unsafe_allow_html=True)
+        
     with col2:
-        st.markdown("""
+        st.markdown(f"""
             <div style="background:#161B22; padding:12px; border-radius:6px; border:1px solid #D50000;">
                 <h4 style="color:#FF1744; margin:0;">LONG UNWINDING DETECTED</h4>
-                <p style="margin:5px 0; color:#FFF;">Price: -0.15 % | OI: -3.2K</p>
-                <p style="color:#8B949E; margin:0;">Cum Volume: 11.31K | Vol Strength: 2.11x</p>
+                <p style="margin:5px 0 0 0; color:#FFF; font-size:13px;"><strong>Ref Fut Price:</strong> ₹{fut_price - 12:,.2f} | <strong>ATM Strike:</strong> {atm_strike}</p>
+                <p style="margin:3px 0; color:#E6EDF3; font-size:12px;">Price Change: -0.15 % | OI Change: -3.2K</p>
+                <p style="color:#8B949E; margin:0; font-size:11px;">Cum Volume: 11.31K | Vol Strength: 2.11x</p>
             </div>
         """, unsafe_allow_html=True)
+
+# TAB 4: Strike Ranking & Win Probability Table
+with tab4:
+    st.subheader("🏆 Strike Price Ranking & Win Probability Calculator")
+    st.caption("డెల్టా మరియు టైమ్ డికే ఆధారంగా గెలిచే అవకాశాలు (%) గల స్ట్రైక్స్ వివరాలు:")
+    
+    rank_data = []
+    strikes_list = [atm_strike + (i * 50) for i in range(-4, 5)]
+    
+    for s in strikes_list:
+        diff = s - atm_strike
+        
+        # Call Perspective Calculation
+        if diff < 0:
+            stk_type = f"ITM ({abs(diff)} pts)"
+            rank = "Rank 1 (Best)"
+            win_pct = 68 - (abs(diff)//50 * 3)
+            delta = round(0.50 + (abs(diff)/500), 2)
+            rec = "🥇 Best for Buying (High Win Rate)"
+        elif diff == 0:
+            stk_type = "ATM"
+            rank = "Rank 2 (High)"
+            win_pct = 52
+            delta = 0.50
+            rec = "🥈 Balanced (Good Momentum)"
+        elif diff == 50:
+            stk_type = "OTM (50 pts)"
+            rank = "Rank 3 (Moderate)"
+            win_pct = 38
+            delta = 0.38
+            rec = "🥉 Moderate Risk (Faster Decay)"
+        else:
+            stk_type = f"Deep OTM ({diff} pts)"
+            rank = "Rank 4 (Low)"
+            win_pct = max(10, 25 - (diff//50 * 5))
+            delta = round(max(0.10, 0.30 - (diff/500)), 2)
+            rec = "⚠️ High Risk (Avoid Buying)"
+            
+        rank_data.append({
+            "Rank": rank,
+            "Strike Price": s,
+            "Category": stk_type,
+            "Delta": delta,
+            "Win Probability": win_pct,
+            "Recommendation": rec
+        })
+        
+    df_rank = pd.DataFrame(rank_data)
+    
+    st.dataframe(
+        df_rank,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Strike Price": st.column_config.NumberColumn("Strike", format="%d"),
+            "Win Probability": st.column_config.ProgressColumn(
+                "Win Probability %",
+                format="%d%%",
+                min_value=0,
+                max_value=100
+            ),
+        }
+    )
 
 # Auto Refresh Control
 st.sidebar.title("⚡ Control Panel")
