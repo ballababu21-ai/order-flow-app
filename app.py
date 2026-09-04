@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY ATM ± 6 Order Flow Engine (Advanced)",
+    page_title="NIFTY ATM ± 6 Order Flow Engine",
     page_icon="⚡",
     layout="wide"
 )
@@ -44,21 +44,6 @@ st.markdown("""
         margin-bottom: 12px;
     }
     
-    .gex-card {
-        background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05));
-        border: 1px solid #AB47BC;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 10px;
-    }
-    .trap-card {
-        background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(213, 0, 0, 0.15));
-        border: 1px solid #FF9800;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 10px;
-    }
-
     .rank-card-best { background-color: rgba(0, 200, 83, 0.15); border-left: 5px solid #00E676; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
     .rank-card-high { background-color: rgba(41, 182, 246, 0.15); border-left: 5px solid #29B6F6; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
     .rank-card-mod { background-color: rgba(255, 167, 38, 0.15); border-left: 5px solid #FFA726; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
@@ -82,11 +67,11 @@ fut_price = spot + 18.5
 zero_gamma = atm_strike - 25
 c_delta = np.random.randint(-1500, 1800)
 
-st.title("⚡ NIFTY Pro Engine (Advanced)")
+st.title("⚡ NIFTY Pro Engine")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
-# Multi-Timeframe Status
+# Multi-Timeframe & Status
 mtf_1m = np.random.choice(["BULLISH", "BEARISH"], p=[0.55, 0.45])
 mtf_3m = mtf_1m if np.random.rand() > 0.2 else np.random.choice(["BULLISH", "BEARISH"])
 mtf_5m = mtf_3m if np.random.rand() > 0.3 else np.random.choice(["BULLISH", "BEARISH"])
@@ -104,22 +89,17 @@ if is_explosion:
     </div>
     """, unsafe_allow_html=True)
 
-# Horizontal Tabs
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-    "📊 Flow Cards", 
-    "🎯 Strike Flow", 
+# Optimized Horizontal Tabs (Fits perfectly on mobile screens without wrapping)
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Flow", 
+    "🎯 Strikes", 
     "📈 Futures & OI",
-    "📍 Volume POC",
-    "⏳ MTF Matrix",
-    "🏆 Win Prob",
-    "🔬 Pro Analytics",
-    "⚡ IV & Skew",
-    "🔮 GEX & Zero",
-    "🚨 OI Trap"
+    "📍 POC & GEX",
+    "🏆 Win & Traps"
 ])
 
 with tab1:
-    st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
+    st.subheader("⏱️ Live Order Flow")
     for i in range(4):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + np.random.uniform(-4, 4), 2)
@@ -153,110 +133,55 @@ with tab2:
     st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
 
 with tab3:
-    st.subheader("📈 Futures & Open Interest (OI) Classification")
+    st.subheader("📈 Futures & Open Interest (OI)")
     oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
     st.markdown(f"""
     <div style="background:#161B22; padding:15px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
         <h4 style="color:#29B6F6; margin:0 0 8px 0;">⚡ LIVE OI BUILDUP TRACKER</h4>
         <p style="margin:4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | ATM Strike: <strong>{atm_strike}</strong></p>
-        <div style="margin-top:10px;">Current Market Classification: <span class="{oi_badge_class}">{current_oi_status}</span></div>
+        <div style="margin-top:10px;">Classification: <span class="{oi_badge_class}">{current_oi_status}</span></div>
     </div>
     """, unsafe_allow_html=True)
     if current_oi_status == "LONG BUILDUP":
-        st.success("🟢 **Price Up + OI Up:** బయ్యర్లు మార్కెట్‌ను బలంగా పైకి తోస్తున్నారు (Bullish Continuation).")
+        st.success("🟢 **Price Up + OI Up:** బయ్యర్లు మార్కెట్‌ను బలంగా పైకి తోస్తున్నారు.")
     elif current_oi_status == "SHORT COVERING":
-        st.info("🔵 **Price Up + OI Down:** షార్ట్ సెల్లర్లు భయపడి పొజిషన్స్ కట్ చేసుకుంటున్నారు (Rapid Upside Spike).")
+        st.info("🔵 **Price Up + OI Down:** షార్ట్ సెల్లర్లు పొజిషన్స్ కట్ చేసుకుంటున్నారు.")
     elif current_oi_status == "SHORT BUILDUP":
-        st.error("🔴 **Price Down + OI Up:** సెల్లర్లు మార్కెట్‌ను కిందకి నెడుతున్నారు (Bearish Pressure).")
+        st.error("🔴 **Price Down + OI Up:** సెల్లర్లు మార్కెట్‌ను కిందకి నెడుతున్నారు.")
     else:
-        st.warning("🟠 **Price Down + OI Down:** లాంగ్ పొజిషన్స్ అన్‌వైండ్ అవుతున్నాయి (Profit Booking / Weakness).")
+        st.warning("🟠 **Price Down + OI Down:** లాంగ్ పొజిషన్స్ అన్‌వైండ్ అవుతున్నాయి.")
 
 with tab4:
-    st.subheader("📍 Volume POC (Point of Control)")
+    st.subheader("📍 Volume POC & Gamma Levels")
     st.markdown(f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 12px;">
         <h3 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h3>
-        <p style="margin: 5px 0 0 0; font-size: 13px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది. సపోర్ట్/రెసిస్టెన్స్ లా పనిచేస్తుంది.</p>
+        <p style="margin: 5px 0 0 0; font-size: 13px; color: #FFF;">అత్యధిక వాల్యూమ్ నమోదైన సపోర్ట్/రెసిస్టెన్స్ జోన్.</p>
     </div>
     """, unsafe_allow_html=True)
+    st.metric(label="Zero Gamma Level", value=zero_gamma)
+    st.metric(label="Net Cumulative Delta", value=f"{c_delta:+d} Contracts")
 
 with tab5:
-    st.subheader("⏳ Multi-Timeframe Matrix")
-    mtf_data = [
-        {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
-        {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Confirmation"},
-        {"Timeframe": "5-Min", "Trend": mtf_5m, "Role": "Intraday Trend Anchor"}
-    ]
-    st.dataframe(pd.DataFrame(mtf_data), use_container_width=True, hide_index=True)
-
-with tab6:
-    st.subheader("🏆 Strike Ranking & Win Probability")
-    strikes_list = [atm_strike + (i * 50) for i in range(-3, 4)]
+    st.subheader("🏆 Win Probability & Traps")
+    strikes_list = [atm_strike + (i * 50) for i in range(-2, 3)]
     for s in strikes_list:
         diff = s - atm_strike
         if diff < 0:
-            rank_title, stk_type, win_pct, delta, card_css, badge_color = "Rank 1 (Best)", f"ITM ({abs(diff)} pts)", 68, round(0.50 + (abs(diff)/500), 2), "rank-card-best", "#00E676"
+            rank_title, stk_type, win_pct, badge_color = "Rank 1", f"ITM ({abs(diff)} pts)", 68, "#00E676"
         elif diff == 0:
-            rank_title, stk_type, win_pct, delta, card_css, badge_color = "Rank 2 (High)", "ATM", 52, 0.50, "rank-card-high", "#29B6F6"
+            rank_title, stk_type, win_pct, badge_color = "Rank 2", "ATM", 52, "#29B6F6"
         else:
-            rank_title, stk_type, win_pct, delta, card_css, badge_color = "Rank 3", f"OTM ({diff} pts)", 38, 0.38, "rank-card-mod", "#FFA726"
+            rank_title, stk_type, win_pct, badge_color = "Rank 3", f"OTM ({diff} pts)", 38, "#FFA726"
         st.markdown(f"""
-        <div class="{card_css}">
+        <div class="rank-card-best">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="font-size: 16px; color: #FFF;">{s} ({stk_type})</strong>
+                <strong style="font-size: 15px; color: #FFF;">{s} ({stk_type})</strong>
                 <span style="background-color: {badge_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">{rank_title}</span>
             </div>
-            <div style="margin-top: 6px; font-size: 13px;"><strong>Win Probability:</strong> <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span> | <strong>Delta:</strong> {delta}</div>
+            <div style="margin-top: 4px; font-size: 13px;"><strong>Win Probability:</strong> <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span></div>
         </div>
         """, unsafe_allow_html=True)
-
-with tab7:
-    st.subheader("🔬 Institutional Pro Analytics & PCR")
-    col1, col2, col3 = st.columns(3)
-    with col1: st.metric(label="Live PCR", value="1.14", delta="+0.08")
-    with col2: st.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
-    with col3: st.metric(label="Flow Score", value="78 / 100", delta="Strong")
-
-with tab8:
-    st.subheader("⚡ IV & Skew Monitor")
-    st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
-
-with tab9:
-    st.subheader("🔮 Gamma Exposure (GEX) & Zero Gamma Level")
-    st.markdown(f"""
-        <div class="gex-card">
-            <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
-            <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
-        </div>
-    """, unsafe_allow_html=True)
-    gex_data = [
-        {"Strike": atm_strike - 50, "Call GEX": "+42Cr", "Put GEX": "-18Cr", "Net Exposure": "Bullish Support"},
-        {"Strike": atm_strike, "Call GEX": "+85Cr", "Put GEX": "-72Cr", "Net Exposure": "Neutral Pivot"},
-        {"Strike": atm_strike + 50, "Call GEX": "-95Cr", "Put GEX": "+30Cr", "Net Exposure": "Bearish Wall"}
-    ]
-    st.dataframe(pd.DataFrame(gex_data), use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    st.subheader("🌊 Cumulative Delta (C-Delta) & Divergence Check")
-    st.metric(label="Net Cumulative Delta", value=f"{c_delta:+d} Contracts")
-    if c_delta > 0:
-        st.success("🟢 **డిల్టా పాజిటివ్:** బయింగ్ ప్రెషర్ బలంగా ఉంది.")
-    else:
-        st.error("🔴 **డెల్టా డైవర్జెన్స్ (Fake Breakout):** ఫేక్ బ్రేక్‌అవుట్!")
-
-with tab10:
-    st.subheader("🚨 OI Trap Detector (Short/Long Traps)")
-    st.markdown("""
-        <div class="trap-card">
-            <h4 style="color: #FF9800; margin:0 0 5px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
-            <p style="margin: 0; font-size: 13px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ వచ్చే అవకాశం ఉంది!</p>
-        </div>
-    """, unsafe_allow_html=True)
-    trap_rows = [
-        {"Strike": atm_strike - 50, "Writer": "Put Writers", "Status": "🚨 TRAPPED", "Action": "Look for Call Entry"},
-        {"Strike": atm_strike + 50, "Writer": "Call Writers", "Status": "Safe / Hedged", "Action": "Watch for Resistance"}
-    ]
-    st.dataframe(pd.DataFrame(trap_rows), use_container_width=True, hide_index=True)
 
 # Auto Refresh Control in Sidebar
 st.sidebar.title("⚡ Control Panel")
