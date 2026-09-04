@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for Dark Modern Dashboard Style
+# Custom Dashboard Styling
 st.markdown("""
     <style>
     .metric-card {
@@ -65,25 +65,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Fetch Credentials from Streamlit Secrets
-client_id = st.secrets.get("DHAN_CLIENT_ID", "")
-access_token = st.secrets.get("DHAN_ACCESS_TOKEN", "")
+# Fetch Credentials and sanitize
+raw_client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
+raw_access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
 
 def fetch_dhan_live_data(c_id, a_token):
     if not c_id or not a_token:
-        return None, "Secrets లో DHAN_CLIENT_ID లేదా DHAN_ACCESS_TOKEN నమోదవ్వలేదు."
-    
-    c_id_str = str(c_id).strip()
-    a_token_str = str(a_token).strip()
+        return None, "Secrets లో DHAN_CLIENT_ID లేదా DHAN_ACCESS_TOKEN కనుగొనబడలేదు."
     
     url = "https://api.dhan.co/v2/marketfeed/ltp"
+    
+    # Precise Headers
     headers = {
-        "access-token": a_token_str,
-        "client-id": c_id_str,
+        "access-token": a_token,
+        "client-id": c_id,
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
     
+    # Dhan LTP Payload format
     payload = {
         "NSE_IDX": [13],
         "IDX_I": [13],
@@ -94,7 +94,8 @@ def fetch_dhan_live_data(c_id, a_token):
     err_detail = ""
 
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        response = requests.post(url, json=payload, headers=headers, timeout=6)
+        
         if response.status_code == 200:
             res_data = response.json()
             if res_data.get('status') == 'success' and 'data' in res_data:
@@ -106,11 +107,12 @@ def fetch_dhan_live_data(c_id, a_token):
                             spot = float(spot_val)
                             break
                 if spot == 0.0:
-                    err_detail = f"Dhan Response: {res_data}"
+                    err_detail = f"Dhan API రెస్పాన్స్ లైవ్ స్పాట్ ఇవ్వలేదు: {res_data}"
             else:
-                err_detail = f"Dhan API Error: {res_data.get('remarks', res_data)}"
+                err_detail = f"Dhan API Remarks: {res_data.get('remarks', res_data)}"
         else:
             err_detail = f"HTTP Error {response.status_code}: {response.text}"
+            
     except Exception as e:
         err_detail = f"Connection Failure: {str(e)}"
 
@@ -132,20 +134,20 @@ def fetch_dhan_live_data(c_id, a_token):
 
 # Sidebar
 st.sidebar.title("🔑 Dhan API Settings")
-st.sidebar.text_input("Dhan Client ID", value=client_id, disabled=True)
+st.sidebar.text_input("Dhan Client ID", value=raw_client_id, disabled=True)
 auto_refresh = st.sidebar.checkbox("⚡ Auto-Refresh Feed (5 sec)", value=False)
 
 # Header
 st.title("⚡ Pro Order Flow & Institutional Analytics Engine")
 
-live_data, status_msg = fetch_dhan_live_data(client_id, access_token)
+live_data, status_msg = fetch_dhan_live_data(raw_client_id, raw_access_token)
 
 if live_data and live_data["is_live"]:
     st.success(status_msg)
     market = live_data
 else:
     st.error(f"❌ Dhan API Details: {status_msg}")
-    st.warning("⚠️ Live Feed రాలేదు / Simulation Engine రన్ అవుతోంది.")
+    st.warning("⚠️ Live Feed రాలేదు / Simulation Engine నడుస్తోంది.")
     market = {
         "is_live": False, "spot": 24220.0, "vwap": 24210.0,
         "ema9": 24225.0, "ema21": 24205.0, "cvd": -1500,
@@ -155,7 +157,7 @@ else:
 
 st.markdown("---")
 
-# Main Cards Layout
+# Main Dashboard Cards
 col1, col2 = st.columns(2)
 
 with col1:
@@ -186,9 +188,9 @@ c_c.metric("PUT-CALL RATIO (PCR)", f"{market['pcr']}")
 
 st.markdown("---")
 
-# Visual Indicator (AI Confidence Meter using HTML CSS)
+# Visual Meter
 st.subheader("🤖 Neural Network Signal Confidence")
-score = 78  # Dynamic Confidence Percentage
+score = 78
 
 st.markdown(f"""
     <div style="background-color: #11141C; padding: 20px; border-radius: 12px; border: 1px solid #1E222D;">
