@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-# TensorFlow & Keras for LSTM
+# TensorFlow ఆటోమేటిక్ హ్యాండ్లింగ్ (ఎర్రర్ రాకుండా)
 try:
   import tensorflow as tf
   from tensorflow.keras.layers import Dense, Input, LSTM
@@ -14,10 +14,25 @@ try:
   TF_AVAILABLE = True
 except ImportError:
   TF_AVAILABLE = False
+  # మొబైల్ లేదా క్లౌడ్ ఎన్విరాన్‌మెంట్‌లో ఆటోమేటిక్‌గా ఇన్‌స్టాల్ చేయడానికి ప్రయత్నించవచ్చు
+  import subprocess
+  import sys
+
+  try:
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "tensorflow"]
+    )
+    import tensorflow as tf
+    from tensorflow.keras.layers import Dense, Input, LSTM
+    from tensorflow.keras.models import Sequential
+
+    TF_AVAILABLE = True
+  except Exception:
+    TF_AVAILABLE = False
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY Institutional Quant Engine (Advanced)",
+    page_title="NIFTY Institutional Quant Engine & LSTM AI",
     page_icon="⚡",
     layout="wide",
 )
@@ -134,7 +149,7 @@ val_migration = np.random.choice(
     p=[0.5, 0.3, 0.2],
 )
 
-st.title("⚡ NIFTY Institutional Quant Engine (Advanced)")
+st.title("⚡ NIFTY Institutional Quant Engine & LSTM AI")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
@@ -168,7 +183,7 @@ if is_explosion:
       unsafe_allow_html=True,
   )
 
-# Exactly 7 Tabs (Original 6 + LSTM AI Tab)
+# Exactly 7 Tabs including LSTM AI
 tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Flow & OI",
     "🎯 Strikes & Win",
@@ -454,11 +469,10 @@ with tab4:
   with col_v2:
     st.metric(label="ATM Charm", value=f"{charm_atm}", delta="Delta Decay")
 
-# TAB 5: Skew, Dark Pools & VAH (Combined Advanced)
+# TAB 5: Skew, Dark Pools & VAH
 with tab5:
   st.subheader("🌊 Vol Skew, Dark Pools & Volume Profile")
 
-  # Sub-section 1: Dark Pools
   st.markdown(
       """
     <div class="darkpool-card">
@@ -489,7 +503,6 @@ with tab5:
   )
 
   st.markdown("---")
-  # Sub-section 2: Vol Skew & Smile
   st.markdown("#### 📉 Volatility Skew & Smile")
   skew_data = [
       {
@@ -516,7 +529,6 @@ with tab5:
   )
 
   st.markdown("---")
-  # Sub-section 3: VAH / VAL
   st.markdown("#### 📊 Value Area Migration")
   col_p1, col_p2, col_p3 = st.columns(3)
   with col_p1:
@@ -552,20 +564,20 @@ with tab6:
       " synchronized and running."
   )
 
-# TAB 7: LSTM AI Predictor (Live Execution Tab)
+# TAB 7: LSTM AI Predictor
 with tab7:
   st.subheader("🤖 NIFTY Deep Learning LSTM Trend Predictor")
 
   if not TF_AVAILABLE:
     st.warning(
-        "⚠️ TensorFlow/Keras ఇన్‌స్టాల్ చేయబడి లేదు. దయచేసి మీ టెర్మినల్ లో"
-        " `pip install tensorflow` రన్ చేయండి."
+        "⚠️ TensorFlow/Keras ఇన్‌స్టాల్ కాలేదు. దయచేసి ఇంటర్నెట్ కనెక్షన్"
+        " చెక్ చేసి లేదా రిమోట్ సర్వర్ రీబూట్ చేయండి."
     )
   else:
     st.markdown(
         "ఈ మాడ్యూల్ లైవ్ / సిమ్యులేటెడ్ ప్రైస్ డేటాను విశ్లేషించి"
         " **LSTM (Long Short-Term Memory)** న్యూరల్ నెట్‌వర్క్ ద్వారా తదుపరి"
-        " మూవ్‌మెంట్‌ను లైవ్‌గా ప్రిడిక్ట్ చేస్తుంది."
+        " మూవ్‌మెంట్‌ను ప్రిడిక్ట్ చేస్తుంది."
     )
 
     col_l1, col_l2 = st.columns(2)
@@ -579,7 +591,6 @@ with tab7:
       with st.spinner(
           "⏳ LSTM మోడల్ డేటాతో ట్రైన్ అవుతోంది... దయచేసి వేచి ఉండండి."
       ):
-        # మార్కెట్ స్పాట్ ప్రైస్ ఆధారంగా డైనమిక్ సైకిల్ డేటా సృష్టి
         np.random.seed(42)
         time_steps_arr = np.linspace(0, 150, 600)
         dummy_data = (
@@ -588,12 +599,10 @@ with tab7:
             + np.random.normal(0, 3.5, 600)
         )
 
-        # డేటా నార్మలైజేషన్ (Min-Max Scaling)
         data_min = np.min(dummy_data)
         data_max = np.max(dummy_data)
         normalized_data = (dummy_data - data_min) / (data_max - data_min)
 
-        # X, y ప్రిపరేషన్
         X, y = [], []
         for i in range(lookback_window, len(normalized_data)):
           X.append(normalized_data[i - lookback_window : i])
@@ -601,7 +610,6 @@ with tab7:
         X, y = np.array(X), np.array(y)
         X = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
-        # LSTM ఆర్కిటెక్చర్ బిల్డింగ్
         model = Sequential([
             Input(shape=(X.shape[1], 1)),
             LSTM(40, return_sequences=False),
@@ -610,18 +618,15 @@ with tab7:
         ])
         model.compile(optimizer="adam", loss="mean_squared_error")
 
-        # మోడల్ ట్రైనింగ్
         model.fit(
             X, y, epochs=epochs, batch_size=batch_size, verbose=0
         )
 
-        # తదుపరి ప్రైస్ ప్రిడిక్షన్
         last_sequence = normalized_data[-lookback_window:].reshape(
             1, lookback_window, 1
         )
         pred_scaled = model.predict(last_sequence, verbose=0)[0][0]
 
-        # ఒరిజినల్ ప్రైస్ స్కేల్‌లోకి మార్చడం
         pred_price = pred_scaled * (data_max - data_min) + data_min
         price_diff = pred_price - spot
 
