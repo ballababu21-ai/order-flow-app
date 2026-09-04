@@ -157,12 +157,16 @@ with tab1:
         box_class = "row-bull-box" if is_bull else "row-bear-box"
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
+        state_text = np.random.choice(["STRONG ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE"])
         ce_val = round(np.random.uniform(10, 90), 1)
         pe_val = round(np.random.uniform(10, 90), 1)
         st.markdown(f"""
         <div class="{box_class}">
             <div style="display: flex; justify-content: space-between;">
                 <strong>{t_str} (₹{s_price})</strong> {side_badge}
+            </div>
+            <div style="font-size: 12px; margin-top:4px; color: #8B949E;">
+                State: <strong>{state_text}</strong>
             </div>
             <div style="font-size: 12px; margin-top:2px;">
                 Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'} ({ce_val}Cr / PE {pe_val}Cr)</strong>
