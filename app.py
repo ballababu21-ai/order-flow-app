@@ -15,10 +15,10 @@ st.set_page_config(
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
-# Custom Styling for Native Containers
+# Custom Dark Styling
 st.markdown("""
     <style>
-    .stApp { background-color: #0E1117; color: #FFFFFF; }
+    .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
     
     /* Card Rows */
     .row-bull-box {
@@ -48,7 +48,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Fetch Credentials
+# Credentials
 client_id = str(st.secrets.get("DHAN_CLIENT_ID", "")).strip().replace('"', '').replace("'", "")
 access_token = str(st.secrets.get("DHAN_ACCESS_TOKEN", "")).strip().replace('"', '').replace("'", "")
 
@@ -65,6 +65,7 @@ st.info("💡 **Sell Strength = writing volume / opposite activity volume** | �
 # Tabs
 tab1, tab2, tab3 = st.tabs(["📊 1-Min Candle Flow Cards", "🎯 Strike Wise Imbalance (ATM ± 6)", "📈 Futures OI & Neutralization"])
 
+# TAB 1: Live Candle Flow
 with tab1:
     st.subheader("⏱️ Live 1-Min Order Flow Stream")
     
@@ -112,23 +113,46 @@ with tab1:
         """
         st.markdown(card_html, unsafe_allow_html=True)
 
+# TAB 2: Clean Dark-Themed Strike Imbalance Table
 with tab2:
-    st.subheader("🎯 Specific Strike Options Flow & Volume Imbalance")
+    st.subheader("🎯 Specific Strike Options Flow & Volume Imbalance (ATM ± 6)")
+    
     strikes = [atm_strike + (i * 50) for i in range(-6, 7)]
     strike_rows = []
+    
     for s in strikes:
         ce_v = np.random.randint(10, 90)
         pe_v = np.random.randint(10, 90)
         str_ratio = round(pe_v / (ce_v + 0.1), 2)
+        
+        imbalance = "Strong Call Writing" if str_ratio < 0.8 else ("Strong Put Writing" if str_ratio > 1.3 else "Neutral Flow")
+        
         strike_rows.append({
-            "Strike Price": s,
-            "CE Vol (Lakhs)": f"{ce_v}L",
-            "PE Vol (Lakhs)": f"{pe_v}L",
+            "Strike": s,
+            "CE Vol": f"{ce_v}L",
+            "PE Vol": f"{pe_v}L",
             "Sell Strength Ratio": str_ratio,
-            "Order Flow Imbalance": "Strong Call Writing" if str_ratio < 0.8 else ("Strong Put Writing" if str_ratio > 1.3 else "Neutral Flow")
+            "Imbalance Status": imbalance
         })
-    st.dataframe(pd.DataFrame(strike_rows), use_container_width=True)
+        
+    df_strikes = pd.DataFrame(strike_rows)
+    
+    st.dataframe(
+        df_strikes,
+        use_container_width=True,
+        hide_index=True,  # తెల్లటి 0, 1, 2 ఇండెక్స్ కనిపించదు
+        column_config={
+            "Strike": st.column_config.NumberColumn("Strike Price", format="%d"),
+            "Sell Strength Ratio": st.column_config.ProgressColumn(
+                "Sell Strength",
+                format="%.2fx",
+                min_value=0,
+                max_value=3.0
+            ),
+        }
+    )
 
+# TAB 3: Futures Signals
 with tab3:
     st.subheader("📈 Futures Cum Neutralization & OI Signals")
     col1, col2 = st.columns(2)
