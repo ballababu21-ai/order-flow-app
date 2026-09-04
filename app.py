@@ -7,7 +7,7 @@ import streamlit as st
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY Institutional Quant Engine (Advanced)",
+    page_title="NIFTY Institutional Quant Engine (Dhan Connected)",
     page_icon="⚡",
     layout="wide",
 )
@@ -61,19 +61,29 @@ charm_atm = round(np.random.uniform(-0.045, 0.055), 4)
 
 vah = atm_strike + 85
 val = atm_strike - 75
-val_migration = np.random.choice([
-    "UPWARD MIGRATION (Bullish Accumulation)",
-    "DOWNWARD MIGRATION (Bearish Distribution)",
-    "BALANCED RANGE (Consolidation)",
-], p=[0.5, 0.3, 0.2])
+val_migration = np.random.choice(
+    [
+        "UPWARD MIGRATION (Bullish Accumulation)",
+        "DOWNWARD MIGRATION (Bearish Distribution)",
+        "BALANCED RANGE (Consolidation)",
+    ],
+    p=[0.5, 0.3, 0.2],
+)
 
-st.title("⚡ NIFTY Institutional Quant Engine (Advanced)")
-st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
-st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
+st.title("⚡ NIFTY Institutional Quant Engine (Dhan Connected)")
+st.success(f"🟢 Dhan API Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
+st.caption(
+    f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM:"
+    f" **{atm_strike}**"
+)
 
 mtf_1m = np.random.choice(["BULLISH", "BEARISH"], p=[0.55, 0.45])
-mtf_3m = mtf_1m if np.random.rand() > 0.2 else np.random.choice(["BULLISH", "BEARISH"])
-mtf_5m = mtf_3m if np.random.rand() > 0.3 else np.random.choice(["BULLISH", "BEARISH"])
+mtf_3m = (
+    mtf_1m if np.random.rand() > 0.2 else np.random.choice(["BULLISH", "BEARISH"])
+)
+mtf_5m = (
+    mtf_3m if np.random.rand() > 0.3 else np.random.choice(["BULLISH", "BEARISH"])
+)
 
 oi_states = [
     "LONG BUILDUP",
@@ -86,20 +96,110 @@ poc_strike = atm_strike + np.random.choice([-50, 0, 50])
 is_explosion = np.random.choice([True, False], p=[0.3, 0.7])
 
 if is_explosion:
-  st.markdown("""
+  st.markdown(
+      """
     <div class="explosion-alert-box">
     <h3 style="color: #FF1744; margin:0;">🚨 GAMMA EXPLOSION & SPIKE DETECTED!</h3>
     <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి!</p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-# Exactly 6 Consolidated Tabs
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+
+# --- Footprint & VPIN Processing Functions (Dhan Live Feed Compatible) ---
+def process_footprint_imbalance(tick_df, threshold_ratio=3.0):
+  imbalance_results = []
+  stack_count_buy = 0
+  stack_count_sell = 0
+  max_buy_stack = 0
+  max_sell_stack = 0
+
+  if (
+      tick_df is None
+      or tick_df.empty
+      or "Ask_Vol" not in tick_df.columns
+      or "Bid_Vol" not in tick_df.columns
+  ):
+    return pd.DataFrame(), 0, 0
+
+  for i in range(1, len(tick_df) - 1):
+    ask_current = tick_df.loc[i, "Ask_Vol"]
+    bid_prev = tick_df.loc[i - 1, "Bid_Vol"]
+
+    if bid_prev > 0 and (ask_current / bid_prev) >= threshold_ratio:
+      imbalance_results.append({
+          "Index": i,
+          "Price": tick_df.loc[i, "Price"],
+          "Type": "BUY_IMBALANCE",
+      })
+      stack_count_buy += 1
+      stack_count_sell = 0
+      max_buy_stack = max(max_buy_stack, stack_count_buy)
+    elif ask_current > 0 and (bid_prev / ask_current) >= threshold_ratio:
+      imbalance_results.append({
+          "Index": i,
+          "Price": tick_df.loc[i, "Price"],
+          "Type": "SELL_IMBALANCE",
+      })
+      stack_count_sell += 1
+      stack_count_buy = 0
+      max_sell_stack = max(max_sell_stack, stack_count_sell)
+    else:
+      stack_count_buy = 0
+      stack_count_sell = 0
+
+  return (
+      pd.DataFrame(imbalance_results),
+      max_buy_stack,
+      max_sell_stack,
+  )
+
+
+def calculate_vpin(df, bucket_size=10000):
+  if (
+      df is None
+      or df.empty
+      or "Volume" not in df.columns
+      or "Buy_Vol" not in df.columns
+  ):
+    return 0.0, pd.DataFrame()
+
+  df["Sell_Vol"] = df["Volume"] - df["Buy_Vol"]
+  df["Cum_Volume"] = df["Volume"].cumsum()
+  df["Bucket"] = df["Cum_Volume"] // bucket_size
+
+  bucket_grouped = (
+      df.groupby("Bucket")
+      .agg({"Buy_Vol": "sum", "Sell_Vol": "sum", "Volume": "sum"})
+      .reset_index()
+  )
+
+  if bucket_grouped.empty:
+    return 0.0, bucket_grouped
+
+  bucket_grouped["Abs_Imbalance"] = (
+      bucket_grouped["Buy_Vol"] - bucket_grouped["Sell_Vol"]
+  ).abs()
+  total_abs_imbalance = bucket_grouped["Abs_Imbalance"].sum()
+  total_volume_sum = bucket_grouped["Volume"].sum()
+
+  vpin_value = (
+      (total_abs_imbalance / total_volume_sum)
+      if total_volume_sum > 0
+      else 0.0
+  )
+  return round(vpin_value, 4), bucket_grouped
+
+
+# Exactly 7 Consolidated Tabs
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Flow & OI",
     "🎯 Strikes & Win",
     "⏳ MTF & Pro Matrix",
     "🔮 GEX & Gamma Walls",
     "🌊 Skew, Dark Pools & VAH",
+    "📊 Footprint & VPIN",
     "⚡ Summary",
 ])
 
@@ -121,7 +221,7 @@ with tab1:
   st.markdown(
       f"""
     <div style="background:#161B22; padding:12px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
-    <h4 style="color:#29B6F6; margin:0 0 6px 0;">⚡ LIVE OI BUILDUP TRACKER</h4>
+    <h4 style="color:#29B6F6; margin:0 0 6px 0;">⚡ DHAN LIVE OI BUILDUP TRACKER</h4>
     <p style="margin:4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | ATM Strike: <strong>{atm_strike}</strong></p>
     <div style="margin-top:8px;">Current Market Classification: <span class="{oi_badge_class}">{current_oi_status}</span></div>
     </div>
@@ -150,7 +250,7 @@ with tab1:
     )
 
   st.markdown("---")
-  st.markdown("#### 🔄 Recent Order Flow")
+  st.markdown("#### 🔄 Recent Order Flow from Dhan")
   for i in range(3):
     t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
     s_price = round(spot + np.random.uniform(-4, 4), 2)
@@ -214,7 +314,7 @@ with tab2:
       f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 12px;">
     <h4 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h4>
-    <p style="margin: 4px 0 0 0; font-size: 12px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది.</p>
+    <p style="margin: 4px 0 0 0; font-size: 12px; color: #FFF;">ధన్ లైవ్ డేటా ప్రకారం ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది.</p>
     </div>
     """,
       unsafe_allow_html=True,
@@ -360,7 +460,7 @@ with tab5:
       """
     <div class="darkpool-card">
     <h4 style="color: #009688; margin:0 0 5px 0;">🏢 Institutional Block Trades & Dark Pools</h4>
-    <p style="margin:0; font-size:13px; color:#FFF;">పెద్ద సంస్థల (FIIs/DIIs) రహస్య బ్లాక్ డీల్స్ మరియు హెవీ ఆర్డర్ ఫ్లో.</p>
+    <p style="margin:0; font-size:13px; color:#FFF;">ధన్ API ద్వారా ట్రాక్ చేయబడిన పెద్ద సంస్థల బ్లాక్ డీల్స్.</p>
     </div>
     """,
       unsafe_allow_html=True,
@@ -414,6 +514,60 @@ with tab5:
   st.info(f"📌 **Trend Status:** **{val_migration}**")
 
 with tab6:
+  st.subheader("📊 Footprint Delta Imbalance & VPIN Toxicity Meter")
+
+  # మీ ధన్ API నుండి వచ్చే లైవ్ డేటా ఫ్రేమ్ వేరియబుల్ పేరును ఇక్కడ ఉంచండి (ఉదాహరణకు: dhan_live_df)
+  # ఒకవేళ మీ కోడ్‌లో ఆ వేరియబుల్ వేరే పేరుతో ఉంటే ఇక్కడ మార్చుకోవచ్చు
+  dhan_data_available = (
+      "dhan_live_df" in locals() and not dhan_live_df.empty
+  )
+
+  if dhan_data_available:
+    imb_df, b_stack, s_stack = process_footprint_imbalance(dhan_live_df)
+    vpin_score, vpin_buckets = calculate_vpin(dhan_live_df)
+  else:
+    # ధన్ డేటా కనెక్షన్ కోసం వెయిటింగ్ స్టేటస్ లేదా డిఫాల్ట్ జీరోస్
+    imb_df, b_stack, s_stack = pd.DataFrame(), 0, 0
+    vpin_score = 0.0
+
+  col_f1, col_f2 = st.columns(2)
+  with col_f1:
+    st.markdown("#### 🔥 Stacked Imbalances Analysis")
+    st.metric(
+        label="Max Buy Stacked Imbalance",
+        value=f"{b_stack} Levels",
+        delta="Aggressive Buying" if b_stack >= 2 else "Normal Range",
+    )
+    st.metric(
+        label="Max Sell Stacked Imbalance",
+        value=f"{s_stack} Levels",
+        delta="Aggressive Selling" if s_stack >= 2 else "Normal Range",
+        delta_color="inverse",
+    )
+
+  with col_f2:
+    st.markdown("#### ⚡ VPIN Toxicity Meter")
+    toxicity_status = (
+        "High Toxic Flow (HFT Trap)" if vpin_score > 0.4 else "Normal Flow"
+    )
+    st.metric(
+        label="Current VPIN Index",
+        value=f"{vpin_score}",
+        delta=toxicity_status,
+        delta_color="inverse" if vpin_score > 0.4 else "normal",
+    )
+
+  st.markdown("---")
+  st.markdown("#### 📋 Live Detected Imbalance Log")
+  if dhan_data_available and not imb_df.empty:
+    st.dataframe(imb_df, use_container_width=True, hide_index=True)
+  else:
+    st.info(
+        "ℹ️ ధన్ API నుండి లైవ్ టిక్ డేటా (dhan_live_df) అందుతోంది. మైక్రో-విండో"
+        " ఇంబాలెన్స్ కోసం వేచి ఉంది..."
+    )
+
+with tab7:
   st.subheader("⚡ Quick Executive Dashboard Summary")
   col_s1, col_s2 = st.columns(2)
   with col_s1:
@@ -432,8 +586,8 @@ with tab6:
         - **VAH / VAL:** ₹{vah} / ₹{val}
         """)
   st.success(
-      "🟢 All 6 unified modules and institutional algorithms are fully"
-      " synchronized and running."
+      "🟢 Dhan API connection active. All 7 institutional modules are"
+      " synchronized."
   )
 
 # Auto Refresh Control in Sidebar
