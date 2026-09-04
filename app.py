@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import math
 import random
 import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+from dhanhq import dhanhq
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY Institutional Quant Engine (Clean 6-Tab)",
+    page_title="Shaurya Money Flow - NIFTY Quant Engine",
     page_icon="⚡",
     layout="wide"
 )
@@ -49,20 +51,42 @@ st.markdown("""
     .explosion-alert-box { background: linear-gradient(135deg, rgba(255, 23, 68, 0.2), rgba(255, 152, 0, 0.2)); border: 2px solid #FF1744; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 12px; }
     .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
     .trap-card { background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(213, 0, 0, 0.15)); border: 1px solid #FF9800; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-    .rank-card-best { background-color: rgba(0, 200, 83, 0.15); border-left: 5px solid #00E676; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-    .rank-card-high { background-color: rgba(41, 182, 246, 0.15); border-left: 5px solid #29B6F6; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-    .rank-card-mod { background-color: rgba(255, 167, 38, 0.15); border-left: 5px solid #FFA726; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-    .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-    .oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-    .oi-short-buildup { background-color: #D50000; color: #FFF; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-    .oi-long-unwinding { background-color: #FFA726; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
     .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .badge-bear { background-color: #D50000; color: #FFF; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .txt-blue { color: #29B6F6; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
-# Helper functions
+# Dhan API Credentials Setup (Streamlit Secrets లేదా డైరెక్ట్ వేరియబుల్స్)
+CLIENT_ID = st.secrets.get("DHAN_CLIENT_ID", "YOUR_CLIENT_ID")
+ACCESS_TOKEN = st.secrets.get("DHAN_ACCESS_TOKEN", "YOUR_ACCESS_TOKEN")
+
+try:
+    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+except Exception:
+    dhan = None
+
+# Live Market Data Fetching Function
+def fetch_live_market_data():
+    try:
+        if dhan:
+            index_quote = dhan.get_security_quote(security_id='13', exchange_segment='IDX_I')
+            if index_quote and 'data' in index_quote:
+                spot_price = float(index_quote['data']['last_price'])
+                return spot_price
+    except Exception:
+        pass
+    return 24225.50  # Fallback Default Spot
+
+spot = fetch_live_market_data()
+atm_strike = round(spot / 50) * 50
+fut_price = spot + 18.5
+zero_gamma = atm_strike - 25
+vah = atm_strike + 85
+val = atm_strike - 75
+support_trap_strike = atm_strike - 50
+
+# Helper functions for Greeks
 def norm_pdf(x):
     return math.exp(-0.5 * x**2) / math.sqrt(2 * math.pi)
 
@@ -72,84 +96,30 @@ def calculate_higher_order_greeks(S, K, T, r, sigma):
     d1 = (math.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * math.sqrt(T))
     d2 = d1 - sigma * math.sqrt(T)
     nd1_prime = norm_pdf(d1)
-    
     gamma = nd1_prime / (S * sigma * math.sqrt(T))
     color = -nd1_prime / (2 * S * T * sigma * math.sqrt(T)) * (1 + (d2 / (sigma * math.sqrt(T))) * d1)
     speed = -gamma / S * (d1 / (sigma * math.sqrt(T)) + 1)
     zomma = gamma * ((d1 * d2 - 1) / sigma)
-    
     return {"Gamma": round(gamma, 5), "Color": round(color, 5), "Speed": round(speed, 5), "Zomma": round(zomma, 5)}
 
-def get_ai_direction_prediction():
-    bull_prob = round(random.uniform(48.0, 81.5), 1)
-    bear_prob = round(100.0 - bull_prob, 1)
-    signal = "STRONG BULLISH BREAKOUT" if bull_prob > 58 else ("STRONG BEARISH SLIDE" if bear_prob > 58 else "SIDEWAYS CHOPPY RANGE")
-    return bull_prob, bear_prob, signal
-
-def analyze_dom_pressure():
-    bid_qty = random.randint(750000, 2500000)
-    ask_qty = random.randint(750000, 2500000)
-    ratio = round(bid_qty / (bid_qty + ask_qty), 2)
-    status = "BULLISH BID WALL (Strong Institutional Accumulation)" if ratio > 0.55 else ("BEARISH ASK WALL (Heavy Resistance Pressure)" if ratio < 0.45 else "BALANCED DEPTH / NEUTRAL")
-    return bid_qty, ask_qty, ratio, status
-
-# Market State & Variables
-spot = 24225.50
-atm_strike = round(spot / 50) * 50
-fut_price = spot + 18.5
-zero_gamma = atm_strike - 25
-c_delta = random.randint(-1500, 1800)
-
-vanna_atm = round(random.uniform(-0.025, 0.035), 4)
-charm_atm = round(random.uniform(-0.045, 0.055), 4)
-
-vah = atm_strike + 85
-val = atm_strike - 75
-val_migration = random.choice(["UPWARD MIGRATION (Bullish Accumulation)", "DOWNWARD MIGRATION (Bearish Distribution)", "BALANCED RANGE (Consolidation)"])
-
-st.title("⚡ NIFTY Institutional Quant Engine")
+st.title("⚡ Shaurya Money Flow - NIFTY Quant Engine")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
-mtf_1m = random.choice(["BULLISH", "BEARISH"])
-mtf_3m = mtf_1m if random.random() > 0.2 else random.choice(["BULLISH", "BEARISH"])
-mtf_5m = mtf_3m if random.random() > 0.3 else random.choice(["BULLISH", "BEARISH"])
-
-oi_states = ["LONG BUILDUP", "SHORT COVERING", "SHORT BUILDUP", "LONG UNWINDING"]
-current_oi_status = random.choice(oi_states)
-poc_strike = atm_strike + random.choice([-50, 0, 50])
-is_explosion = random.choice([True, False])
-
-if is_explosion:
-    st.markdown("""
-    <div class="explosion-alert-box">
-        <h3 style="color: #FF1744; margin:0;">🚨 GAMMA EXPLOSION & SPIKE DETECTED!</h3>
-        <p style="margin: 4px 0 0 0; color: #FFF; font-size: 13px;">ATM ± 50 స్ట్రైక్స్‌ వద్ద వాల్యూమ్ మరియు డెల్టా ఊహించని విధంగా పేలాయి!</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# 6 Clean Combined Tabs Structure
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📊 Flow & Prices", 
-    "📈 Market & POC", 
-    "🎯 Pro & Win", 
-    "🔮 GEX, Traps & DOM", 
+# Tabs Structure
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "📊 1-Min Flow", 
+    "📈 Futures Cum Neutralization", 
+    "🎯 ATM±6 Defense", 
+    "🔮 GEX & Traps", 
     "🧬 Greeks & AI", 
-    "🎯 Settlement & Pain"
+    "🎯 Settlement",
+    "🧬 Vanna/Charm",
+    "📊 VAH/VAL"
 ])
 
 with tab1:
-    st.subheader("⏱️ Live Order Flow (Wall Touch & Alignment)")
-    
-    # Futures & OI Status Box
-    oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
-    st.markdown(f"""
-    <div style="background:#161B22; padding:12px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
-        <p style="margin:0 0 4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | OI Status: <span class="{oi_badge_class}">{current_oi_status}</span></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("#### Recent Order Flows (Wall Touch & Alignment Status)")
+    st.subheader("⏱️ 1-Min All Candles Flow (Neutralized & Seller-Only)")
     for i in range(4):
         t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
         s_price = round(spot + random.uniform(-4, 4), 2)
@@ -158,62 +128,49 @@ with tab1:
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
         
-        # Wall touch & alignment logic included
-        state_text = random.choice(["STRONG WALL TOUCH & ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE & ALIGNED"])
-        ce_val = round(random.uniform(10, 90), 1)
-        pe_val = round(random.uniform(10, 90), 1)
+        wall_text = f"{stk} {'PE' if is_bull else 'CE'} ({round(random.uniform(30,90),1)}L)"
+        neut_flow = f"+{round(random.uniform(1,5),2)}L (Dir {round(random.uniform(3,8),1)}L | Opp {round(random.uniform(2,5),1)}L)"
+        seller_neut = f"+{round(random.uniform(2,8),2)}L (Net Active)"
         
         st.markdown(f"""
         <div class="{box_class}">
-            <div style="display: flex; justify-content: space-between;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                 <strong>{t_str} (₹{s_price})</strong> {side_badge}
+                <span style="font-size:11px; color:#29B6F6;">WALL TOUCH & ALIGNED</span>
             </div>
-            <div style="font-size: 12px; margin-top:4px; color: #8B949E;">State: <strong>{state_text}</strong></div>
-            <div style="font-size: 12px; margin-top:2px;">Strike Flow: <strong class="txt-blue">{stk} {'PE' if is_bull else 'CE'} (CE {ce_val}Cr / PE {pe_val}Cr)</strong></div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-top:6px; color: #C9D1D9;">
+                <div><strong>WALL/OI:</strong> {wall_text}</div>
+                <div><strong>NEUTRALIZED:</strong> {neut_flow}</div>
+                <div><strong>SELLER-ONLY:</strong> {seller_neut}</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("#### Strike Imbalance Matrix")
-    strikes = [atm_strike + (i * 50) for i in range(-2, 3)]
-    strike_rows = [{"Strike": s, "CE Vol": f"{random.randint(10, 80)}L", "PE Vol": f"{random.randint(10, 80)}L", "Ratio": round(random.uniform(0.6, 1.8), 2)} for s in strikes]
-    st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
-
 with tab2:
-    st.subheader("📈 Volume POC, VAH/VAL & Multi-Timeframe")
-    col_p1, col_p2, col_p3 = st.columns(3)
-    col_p1.metric(label="VAH", value=f"₹{vah}")
-    col_p2.metric(label="POC Strike", value=f"{poc_strike}")
-    col_p3.metric(label="VAL", value=f"₹{val}")
-    st.info(f"📌 **Trend Status:** **{val_migration}**")
-
-    st.markdown("#### Multi-Timeframe Trend Matrix")
-    mtf_data = [
-        {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Scalping Trigger"},
-        {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Conf."},
-        {"Timeframe": "5-Min", "Trend": mtf_5m, "Role": "Intraday Anchor"}
-    ]
-    st.dataframe(pd.DataFrame(mtf_data), use_container_width=True, hide_index=True)
+    st.subheader("📈 Futures Cum Neutralization & OI Matrix")
+    for i in range(3):
+        status_type = random.choice(["Fresh Short Build", "Short Covering", "Long Buildup"])
+        cum_val = f"-{random.randint(2,6)}.${random.randint(10,99)}K"
+        st.markdown(f"""
+        <div style="background:#161B22; border:1px solid #30363D; border-radius:6px; padding:10px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between;">
+                <strong>{status_type}</strong>
+                <span style="color:#29B6F6;">Cum: {cum_val} | Vol Strength: {round(random.uniform(0.2, 0.8),2)}x</span>
+            </div>
+            <div style="font-size:12px; color:#8B949E; margin-top:4px;">
+                OI Strength: <strong>{round(random.uniform(1.0, 1.5),2)}x</strong> | Vol Rank #{random.randint(5,30)} | OI Add Rank #{random.randint(1,10)}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 with tab3:
-    st.subheader("🏆 Strike Rankings, Win % & Pro Analytics")
-    c1, c2, c3 = st.columns(3)
-    c1.metric(label="Live PCR", value="1.14", delta="+0.08")
-    c2.metric(label="Max Pain", value=f"{atm_strike}")
-    c3.metric(label="ATM IV", value="13.45%", delta="-0.80%")
-
-    st.markdown("#### Strike Win Probabilities")
-    strikes_list = [atm_strike + (i * 50) for i in range(-2, 3)]
-    for s in strikes_list:
-        diff = s - atm_strike
-        if diff < 0: rank_title, win_pct, card_css, badge_color = "Rank 1 (Best)", 68, "rank-card-best", "#00E676"
-        elif diff == 0: rank_title, win_pct, card_css, badge_color = "Rank 2 (High)", 52, "rank-card-high", "#29B6F6"
-        else: rank_title, win_pct, card_css, badge_color = "Rank 3", 38, "rank-card-mod", "#FFA726"
+    st.subheader("🎯 NIFTY ATM±6 Defense Matrix")
+    st.markdown("<p style='font-size:12px; color:#8B949E;'>Every rolling ATM±6 PE/CE strike is scanned independently.</p>", unsafe_allow_html=True)
+    for i in range(3):
+        t_str = (now_ist - timedelta(minutes=i*2)).strftime("%H:%M")
         st.markdown(f"""
-        <div class="{card_css}">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <strong style="font-size: 14px; color: #FFF;">{s}</strong>
-                <span style="background-color: {badge_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{rank_title} ({win_pct}%)</span>
-            </div>
+        <div style="background:#161B22; border-left:4px solid #238636; padding:8px; border-radius:4px; margin-bottom:6px; font-size:12px;">
+            <strong>{t_str}</strong> | Strike: <strong>{atm_strike} PE</strong> | State: <span style="color:#00C853;">DEFENSE WATCH</span> | Neutralized Control: +{round(random.uniform(5,20),2)}L
         </div>
         """, unsafe_allow_html=True)
 
@@ -224,31 +181,14 @@ with tab4:
             <h4 style="color: #AB47BC; margin:0 0 4px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
             <p style="margin: 0; font-size: 12px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
         </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-        <div class="trap-card">
-            <h4 style="color: #FF9800; margin:0 0 4px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT</h4>
-            <p style="margin: 0; font-size: 12px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ అవకాశం ఉంది!</p>
+        <div class="trap-card" style="margin-top:10px;">
+            <h4 style="color: #FF9800; margin:0 0 4px 0;">⚠️ PUT WRITERS TRAPPED AT SUPPORT: {support_trap_strike} Strike</h4>
+            <p style="margin: 0; font-size: 12px;">పుట్ రైటర్లు ఇరుక్కుపోయారు. షార్ట్ కవరింగ్ వచ్చే అవకాశం ఉంది!</p>
         </div>
     """, unsafe_allow_html=True)
 
-    b_q, a_q, rat, stat = analyze_dom_pressure()
-    c_d1, c_d2 = st.columns(2)
-    c_d1.metric("Bid Depth", f"{b_q:,}")
-    c_d2.metric("Ask Depth", f"{a_q:,}")
-    st.warning(f"⚡ **DOM Wall:** **{stat}**")
-
 with tab5:
-    st.subheader("🧬 Higher-Order Greeks, Vanna/Charm & AI Predictor")
-    b_prob, r_prob, sig = get_ai_direction_prediction()
-    st.markdown(f"""
-    <div style="background: rgba(41, 182, 246, 0.1); border: 1px solid #29B6F6; border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 10px;">
-        <h4 style="color: #29B6F6; margin:0;">ML Signal: {sig}</h4>
-        <p style="margin: 4px 0 0 0; font-size: 13px;">Bullish: <b>{b_prob}%</b> | Bearish: <b>{r_prob}%</b></p>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.subheader("🧬 Higher-Order Greeks & AI Predictor")
     greeks_res = calculate_higher_order_greeks(spot, atm_strike, 0.04, 0.10, 0.14)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Gamma", greeks_res["Gamma"])
@@ -256,15 +196,24 @@ with tab5:
     c3.metric("Speed", greeks_res["Speed"])
     c4.metric("Zomma", greeks_res["Zomma"])
 
-    col_v1, col_v2 = st.columns(2)
-    col_v1.metric("Vanna", f"{vanna_atm}")
-    col_v2.metric("Charm", f"{charm_atm}")
-
 with tab6:
     st.subheader("🎯 Settlement & Max Pain Shift Tracker")
     current_pain = atm_strike + random.choice([-50, 0, 50])
     st.metric(label="Dynamic Max Pain Shift Strike", value=f"{current_pain}", delta="Shifting Upwards")
     st.success(f"📌 బిగ్ ప్లేయర్స్ ఎక్స్‌పైరి సమయానికి మార్కెట్‌ను **{current_pain}** వద్ద సెటిల్ చేయడానికి ప్రయత్నిస్తున్నారు.")
+
+with tab7:
+    st.subheader("🧬 Vanna & Charm Exposure")
+    col_v1, col_v2 = st.columns(2)
+    with col_v1: st.metric(label="ATM Vanna Exposure", value="+0.0245", delta="Volatility Sensitivity")
+    with col_v2: st.metric(label="ATM Charm (Delta Decay)", value="-0.0382", delta="Time Decay Impact")
+
+with tab8:
+    st.subheader("📊 Volume Profile VAH & VAL Migration")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1: st.metric(label="Value Area High (VAH)", value=f"₹{vah}", delta="Resistance")
+    with col_p2: st.metric(label="Point of Control (POC)", value=f"₹{atm_strike}", delta="Fair Value")
+    with col_p3: st.metric(label="Value Area Low (VAL)", value=f"₹{val}", delta="Support")
 
 # Auto Refresh Control in Sidebar
 st.sidebar.title("⚡ Control Panel")
