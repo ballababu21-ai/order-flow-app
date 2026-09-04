@@ -36,22 +36,6 @@ st.markdown("""
     }
     
     /* Smart Signal Cards */
-    .smart-signal-call {
-        background: linear-gradient(135deg, rgba(0,200,83,0.3) 0%, rgba(0,100,40,0.4) 100%);
-        border: 2px solid #00E676;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-        text-align: center;
-    }
-    .smart-signal-put {
-        background: linear-gradient(135deg, rgba(213,0,0,0.3) 0%, rgba(100,0,0,0.4) 100%);
-        border: 2px solid #FF1744;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-        text-align: center;
-    }
     .smart-signal-neutral {
         background-color: #161B22;
         border: 1px dashed #8B949E;
@@ -109,6 +93,12 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
+    /* OI Classification Badges */
+    .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .oi-short-buildup { background-color: #D50000; color: #FFF; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+    .oi-long-unwinding { background-color: #FFA726; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+
     .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     .badge-bear { background-color: #D50000; color: #FFF; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
     
@@ -127,28 +117,35 @@ spot = 24225.50
 atm_strike = round(spot / 50) * 50
 fut_price = spot + 18.5
 
-st.title("⚡ NIFTY 1m, 3m, 5m MTF Engine")
+st.title("⚡ NIFTY Pro Engine (MTF + OI + POC)")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
-# Multi-Timeframe Status (1m, 3m, 5m only)
+# Multi-Timeframe Status (1m, 3m, 5m)
 mtf_1m = np.random.choice(["BULLISH", "BEARISH"], p=[0.55, 0.45])
 mtf_3m = mtf_1m if np.random.rand() > 0.2 else np.random.choice(["BULLISH", "BEARISH"])
 mtf_5m = mtf_3m if np.random.rand() > 0.3 else np.random.choice(["BULLISH", "BEARISH"])
 
-# ⚡ MULTI-TIMEFRAME CONFLUENCE BANNER (1m, 3m, 5m)
+# Simulated OI Buildup State
+oi_states = ["LONG BUILDUP", "SHORT COVERING", "SHORT BUILDUP", "LONG UNWINDING"]
+current_oi_status = np.random.choice(oi_states, p=[0.45, 0.25, 0.20, 0.10])
+
+# Volume POC (Point of Control) calculation simulation
+poc_strike = atm_strike + np.random.choice([-50, 0, 50])
+
+# ⚡ MULTI-TIMEFRAME CONFLUENCE BANNER
 if mtf_1m == "BULLISH" and mtf_3m == "BULLISH" and mtf_5m == "BULLISH":
     st.markdown("""
         <div class="mtf-box-bull">
             <h3 style="color: #00E676; margin:0;">🚀 1m + 3m + 5m MEGA BULLISH</h3>
-            <p style="margin: 3px 0 0 0; color: #FFF; font-size: 13px;">1m, 3m, 5m టైమ్‌ఫ్రేమ్‌లు అన్నీ ఒకే వైపు ఉన్నాయి. పర్ఫెక్ట్ బైయింగ్ సిగ్నల్!</p>
+            <p style="margin: 3px 0 0 0; color: #FFF; font-size: 13px;">అన్ని టైమ్‌ఫ్రేమ్‌లు బైయింగ్ వైపు అలైన్ అయ్యాయి!</p>
         </div>
     """, unsafe_allow_html=True)
 elif mtf_1m == "BEARISH" and mtf_3m == "BEARISH" and mtf_5m == "BEARISH":
     st.markdown("""
         <div class="mtf-box-bear">
             <h3 style="color: #FF1744; margin:0;">📉 1m + 3m + 5m MEGA BEARISH</h3>
-            <p style="margin: 3px 0 0 0; color: #FFF; font-size: 13px;">1m, 3m, 5m టైమ్‌ఫ్రేమ్‌లు అన్నీ కిందకి పడటానికి అలైన్ అయ్యాయి. పర్ఫెక్ట్ సెల్లింగ్ సిగ్నల్!</p>
+            <p style="margin: 3px 0 0 0; color: #FFF; font-size: 13px;">అన్ని టైమ్‌ఫ్రేమ్‌లు సెల్లింగ్ వైపు అలైన్ అయ్యాయి!</p>
         </div>
     """, unsafe_allow_html=True)
 else:
@@ -161,12 +158,13 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-# Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# Tabs including new features
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Flow Cards", 
     "🎯 Strike Flow", 
-    "📈 Futures OI",
-    "⏳ 1m/3m/5m Matrix",
+    "📈 Futures & OI",
+    "📍 Volume POC",
+    "⏳ MTF Matrix",
     "🏆 Win Probability"
 ])
 
@@ -199,30 +197,59 @@ with tab2:
     st.dataframe(pd.DataFrame(strike_rows), use_container_width=True, hide_index=True)
 
 with tab3:
-    st.subheader("📈 Futures Signals")
+    st.subheader("📈 Futures & Open Interest (OI) Classification")
+    
+    # Badge selector for OI status
+    oi_badge_class = "oi-long-buildup" if current_oi_status == "LONG BUILDUP" else ("oi-short-covering" if current_oi_status == "SHORT COVERING" else ("oi-short-buildup" if current_oi_status == "SHORT BUILDUP" else "oi-long-unwinding"))
+    
     st.markdown(f"""
-        <div style="background:#161B22; padding:12px; border-radius:6px; border:1px solid #00C853; margin-bottom:10px;">
-            <h4 style="color:#00E676; margin:0;">ACTIVE FUTURES FLOW DETECTED</h4>
-            <p style="margin:3px 0; font-size:12px;">Fut Price: ₹{fut_price:,.2f} | ATM: {atm_strike}</p>
+        <div style="background:#161B22; padding:15px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
+            <h4 style="color:#29B6F6; margin:0 0 8px 0;">⚡ LIVE OI BUILdup TRACKER</h4>
+            <p style="margin:4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | ATM Strike: <strong>{atm_strike}</strong></p>
+            <div style="margin-top:10px;">
+                Current Market Classification: <span class="{oi_badge_class}">{current_oi_status}</span>
+            </div>
         </div>
     """, unsafe_allow_html=True)
-
-# TAB 4: Multi-Timeframe Details (1m, 3m, 5m only)
-with tab4:
-    st.subheader("⏳ Multi-Timeframe (1m, 3m, 5m) Matrix")
-    st.caption("స్కెల్పింగ్ మరియు క్విక్ ఇంట్రాడే మూవ్స్ కోసం టైమ్‌ఫ్రేమ్ స్థితిగతులు:")
     
+    if current_oi_status == "LONG BUILDUP":
+        st.success("🟢 **Price Up + OI Up:** బయ్యర్లు మార్కెట్‌ను బలంగా పైకి తోస్తున్నారు (Bullish Continuation).")
+    elif current_oi_status == "SHORT COVERING":
+        st.blue("🔵 **Price Up + OI Down:** షార్ట్ సెల్లర్లు భయపడి పొజిషన్స్ కట్ చేసుకుంటున్నారు (Rapid Upside Spike).")
+    elif current_oi_status == "SHORT BUILDUP":
+        st.error("🔴 **Price Down + OI Up:** సెల్లర్లు మార్కెట్‌ను కిందకి నెడుతున్నారు (Bearish Pressure).")
+    else:
+        st.warning("🟠 **Price Down + OI Down:** లాంగ్ పొజిషన్స్ అన్‌వైండ్ అవుతున్నాయి (Profit Booking / Weakness).")
+
+with tab4:
+    st.subheader("📍 Volume POC (Point of Control)")
+    st.caption("అత్యధికంగా వాల్యూమ్ ట్రేడ్ అయిన ఇన్‌స్టిట్యూషనల్ జోన్ (Institutional Fair Value):")
+    
+    st.markdown(f"""
+        <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 12px;">
+            <h3 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h3>
+            <p style="margin: 5px 0 0 0; font-size: 13px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది. ఇది కీలకమైన సపోర్ట్/రెసిస్టెన్స్ లా పనిచేస్తుంది.</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    poc_data = [
+        {"Zone": "Above POC (Resistance)", "Status": f"Stp > {poc_strike + 50}", "Action": "Look for Rejection / Put Entry if weak"},
+        {"Zone": "At POC (Fair Value)", "Status": f"Range {poc_strike} ± 25", "Action": "Consolidation Zone (Avoid breakout trades here)"},
+        {"Zone": "Below POC (Support)", "Status": f"Stp < {poc_strike - 50}", "Action": "Look for Support Bounce / Call Entry if strong"}
+    ]
+    st.dataframe(pd.DataFrame(poc_data), use_container_width=True, hide_index=True)
+
+with tab5:
+    st.subheader("⏳ Multi-Timeframe (1m, 3m, 5m) Matrix")
     mtf_data = [
         {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
         {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Confirmation"},
         {"Timeframe": "5-Min", "Trend": mtf_5m, "Role": "Intraday Trend Anchor"}
     ]
-    df_mtf = pd.DataFrame(mtf_data)
-    st.dataframe(df_mtf, use_container_width=True, hide_index=True)
-    
-    st.info("💡 **రూల్:** 1m, 3m, 5m అన్నీ ఒకే వైపు ఉంటేనే త్వరితగతిన మంచి మూవ్‌మెంట్ వస్తుంది.")
+    st.dataframe(pd.DataFrame(mtf_data), use_container_width=True, hide_index=True)
+    st.info("💡 **రూల్:** 1m, 3m, 5m అన్నీ ఒకే వైపు ఉంటేనే ట్రేడ్ తీసుకోవడం సురక్షితం.")
 
-with tab5:
+with tab6:
     st.subheader("🏆 Strike Ranking & Win Probability")
     strikes_list = [atm_strike + (i * 50) for i in range(-3, 4)]
     
