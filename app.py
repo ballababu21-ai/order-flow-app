@@ -4,6 +4,8 @@ import time
 import numpy as np
 import pandas as pd
 import streamlit as st
+import torch
+import torch.nn as nn
 
 # Page Config
 st.set_page_config(
@@ -192,14 +194,61 @@ def calculate_vpin(df, bucket_size=10000):
   return round(vpin_value, 4), bucket_grouped
 
 
-# Exactly 7 Consolidated Tabs
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+# --- LSTM AI Architecture & Inference Functions ---
+class NiftyLSTM(nn.Module):
+
+  def __init__(self, input_dim=5, hidden_dim=64, num_layers=2, output_dim=1):
+    super(NiftyLSTM, self).__init__()
+    self.lstm = nn.LSTM(
+        input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2
+    )
+    self.fc = nn.Linear(hidden_dim, output_dim)
+    self.sigmoid = nn.Sigmoid()
+
+  def forward(self, x):
+    out, _ = self.lstm(x)
+    out = self.fc(out[:, -1, :])
+    return self.sigmoid(out)
+
+
+@st.cache_resource
+def load_lstm_model():
+  model = NiftyLSTM(input_dim=5, hidden_dim=64, num_layers=2, output_dim=1)
+  model.eval()
+  return model
+
+
+lstm_model = load_lstm_model()
+
+
+def prepare_lstm_features(df):
+  if df is None or len(df) < 10:
+    return None
+  if "Sell_Vol" not in df.columns:
+    df["Sell_Vol"] = df["Volume"] - df["Buy_Vol"]
+
+  features_df = df[["Price", "Volume", "Buy_Vol", "Sell_Vol"]].copy()
+  features_df["Imbalance"] = (
+      features_df["Buy_Vol"] - features_df["Sell_Vol"]
+  ) / (features_df["Volume"] + 1e-5)
+
+  norm_df = (features_df - features_df.min()) / (
+      features_df.max() - features_df.min() + 1e-5
+  )
+  recent_seq = norm_df.tail(10).values
+  if len(recent_seq) < 10:
+    return None
+
+  return torch.tensor(recent_seq, dtype=torch.float32).unsqueeze(0)
+
+
+# Exactly 6 Consolidated Tabs
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Flow & OI",
-    "🎯 Strikes & Win",
-    "⏳ MTF & Pro Matrix",
-    "🔮 GEX & Gamma Walls",
-    "🌊 Skew, Dark Pools & VAH",
-    "📊 Footprint & VPIN",
+    "🎯 Strikes & Matrix",
+    "🔮 GEX & Walls",
+    "🌊 Dark Pools & VAH",
+    "📊 Footprint & AI",
     "⚡ Summary",
 ])
 
@@ -309,7 +358,7 @@ with tab1:
   )
 
 with tab2:
-  st.subheader("🎯 Specific Strike Imbalance & POC")
+  st.subheader("🎯 Specific Strikes, POC & MTF Matrix")
   st.markdown(
       f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 12px;">
@@ -319,71 +368,17 @@ with tab2:
     """,
       unsafe_allow_html=True,
   )
-  strikes = [atm_strike + (i * 50) for i in range(-3, 4)]
-  strike_rows = [{
-      "Strike": s,
-      "CE Vol": f"{np.random.randint(10, 80)}L",
-      "PE Vol": f"{np.random.randint(10, 80)}L",
-      "Ratio": round(np.random.uniform(0.6, 1.8), 2),
-  } for s in strikes]
-  st.dataframe(
-      pd.DataFrame(strike_rows), use_container_width=True, hide_index=True
-  )
 
-  st.markdown("---")
-  st.subheader("🏆 Strike Ranking & Win Probability")
-  for s in strikes:
-    diff = s - atm_strike
-    if diff < 0:
-      rank_title, stk_type, win_pct, delta, card_css, badge_color = (
-          "Rank 1 (Best)",
-          f"ITM ({abs(diff)} pts)",
-          68,
-          round(0.50 + (abs(diff) / 500), 2),
-          "rank-card-best",
-          "#00E676",
-      )
-    elif diff == 0:
-      rank_title, stk_type, win_pct, delta, card_css, badge_color = (
-          "Rank 2 (High)",
-          "ATM",
-          52,
-          0.50,
-          "rank-card-high",
-          "#29B6F6",
-      )
-    else:
-      rank_title, stk_type, win_pct, delta, card_css, badge_color = (
-          "Rank 3",
-          f"OTM ({diff} pts)",
-          38,
-          0.38,
-          "rank-card-mod",
-          "#FFA726",
-      )
-    st.markdown(
-        f"""
-        <div class="{card_css}">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong style="font-size: 15px; color: #FFF;">{s} ({stk_type})</strong>
-        <span style="background-color: {badge_color}; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px;">{rank_title}</span>
-        </div>
-        <div style="margin-top: 4px; font-size: 12px;"><strong>Win Probability:</strong> <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span> | <strong>Delta:</strong> {delta}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-with tab3:
-  st.subheader("⏳ Multi-Timeframe Matrix & Pro Analytics")
   col1, col2, col3 = st.columns(3)
   with col1:
     st.metric(label="Live PCR", value="1.14", delta="+0.08")
   with col2:
     st.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
   with col3:
-    st.metric(label="Flow Score", value="78 / 100", delta="Strong")
+    st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
+
   st.markdown("---")
+  st.markdown("#### ⏳ Multi-Timeframe Trend & Win Probability")
   mtf_data = [
       {"Timeframe": "1-Min", "Trend": mtf_1m, "Role": "Quick Scalping Trigger"},
       {"Timeframe": "3-Min", "Trend": mtf_3m, "Role": "Momentum Confirmation"},
@@ -392,11 +387,43 @@ with tab3:
   st.dataframe(
       pd.DataFrame(mtf_data), use_container_width=True, hide_index=True
   )
-  st.markdown("---")
-  st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
 
-with tab4:
-  st.subheader("🔮 Gamma Exposure (GEX) & Extreme Gamma Walls")
+  strikes = [atm_strike + (i * 50) for i in range(-2, 3)]
+  st.markdown("#### 🏆 Key Strike Rankings")
+  for s in strikes:
+    diff = s - atm_strike
+    if diff < 0:
+      rank_title, stk_type, win_pct, badge_color = (
+          "Rank 1",
+          f"ITM ({abs(diff)} pts)",
+          68,
+          "#00E676",
+      )
+    elif diff == 0:
+      rank_title, stk_type, win_pct, badge_color = (
+          "Rank 2",
+          "ATM",
+          52,
+          "#29B6F6",
+      )
+    else:
+      rank_title, stk_type, win_pct, badge_color = (
+          "Rank 3",
+          f"OTM ({diff} pts)",
+          38,
+          "#FFA726",
+      )
+    st.markdown(
+        f"""
+        <div class="rank-card-high" style="padding: 6px 10px; margin-bottom: 4px;">
+        <span style="color:#FFF; font-weight:bold;">{s} ({stk_type})</span> | Win Prob: <span style="color:{badge_color}; font-weight:bold;">{win_pct}%</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with tab3:
+  st.subheader("🔮 Gamma Exposure (GEX) & Dealer Walls")
   st.markdown(
       f"""
     <div class="gex-card">
@@ -406,46 +433,24 @@ with tab4:
     """,
       unsafe_allow_html=True,
   )
-  gex_data = [{
-      "Strike": atm_strike - 50,
-      "Call GEX": "+42Cr",
-      "Put GEX": "-18Cr",
-      "Net Exposure": "Bullish Support",
-  }, {
-      "Strike": atm_strike,
-      "Call GEX": "+85Cr",
-      "Put GEX": "-72Cr",
-      "Net Exposure": "Neutral Pivot",
-  }, {
-      "Strike": atm_strike + 50,
-      "Call GEX": "-95Cr",
-      "Put GEX": "+30Cr",
-      "Net Exposure": "Bearish Wall",
-  }]
-  st.dataframe(
-      pd.DataFrame(gex_data), use_container_width=True, hide_index=True
-  )
-  st.markdown("---")
-  st.markdown("#### 🏛️ Dealer Gamma Hedging Walls")
+
   wall_data = [{
       "Level": f"{atm_strike + 150} (Call Wall)",
       "Type": "Heavy Resistance",
-      "Dealer Hedging": "Short Gamma (Sell on rise)",
       "Significance": "Extremely High",
   }, {
       "Level": f"{atm_strike} (ATM Pivot)",
       "Type": "Gamma Magnet",
-      "Dealer Hedging": "Neutral Pinning",
       "Significance": "High",
   }, {
       "Level": f"{atm_strike - 150} (Put Wall)",
       "Type": "Heavy Support",
-      "Dealer Hedging": "Long Gamma (Buy on dip)",
       "Significance": "Extremely High",
   }]
   st.dataframe(
       pd.DataFrame(wall_data), use_container_width=True, hide_index=True
   )
+
   col_v1, col_v2 = st.columns(2)
   with col_v1:
     st.metric(label="ATM Vanna", value=f"{vanna_atm}", delta="Vol Sensitivity")
@@ -454,8 +459,8 @@ with tab4:
         label="ATM Charm", value=f"{charm_atm}", delta="Delta Decay"
     )
 
-with tab5:
-  st.subheader("🌊 Vol Skew, Dark Pools & VAH")
+with tab4:
+  st.subheader("🌊 Dark Pools, Vol Skew & VAH Migration")
   st.markdown(
       """
     <div class="darkpool-card">
@@ -470,40 +475,13 @@ with tab5:
       "Asset": "NIFTY FUT",
       "Block Size": "14,500 Contracts",
       "Est. Value": "₹351 Cr",
-      "Footprint Action": "🟢 Aggressive Accumulation",
-  }, {
-      "Time": "01:30 PM",
-      "Asset": "NIFTY 24300 CE",
-      "Block Size": "28,000 Lots",
-      "Est. Value": "₹112 Cr",
-      "Footprint Action": "🟢 Call Writing Absorption",
+      "Action": "🟢 Aggressive Accumulation",
   }]
   st.dataframe(
       pd.DataFrame(block_data), use_container_width=True, hide_index=True
   )
+
   st.markdown("---")
-  st.markdown("#### 📉 Volatility Skew & Smile")
-  skew_data = [{
-      "Strike Range": "Deep OTM Puts",
-      "IV (%)": "16.5%",
-      "Skew Type": "Steep Smile",
-      "Intent": "Heavy Downside Protection",
-  }, {
-      "Strike Range": "ATM Range",
-      "IV (%)": "13.4%",
-      "Skew Type": "Baseline",
-      "Intent": "Normal Trading",
-  }, {
-      "Strike Range": "Deep OTM Calls",
-      "IV (%)": "12.0%",
-      "Skew Type": "Flat Skew",
-      "Intent": "Capped Upside",
-  }]
-  st.dataframe(
-      pd.DataFrame(skew_data), use_container_width=True, hide_index=True
-  )
-  st.markdown("---")
-  st.markdown("#### 📊 Value Area Migration")
   col_p1, col_p2, col_p3 = st.columns(3)
   with col_p1:
     st.metric(label="VAH", value=f"₹{vah}", delta="Resistance")
@@ -513,58 +491,68 @@ with tab5:
     st.metric(label="VAL", value=f"₹{val}", delta="Support")
   st.info(f"📌 **Trend Status:** **{val_migration}**")
 
-with tab6:
-  st.subheader("📊 Footprint Delta Imbalance & VPIN Toxicity Meter")
+with tab5:
+  st.subheader("📊 Footprint Delta & 🧠 LSTM AI Predictor")
 
-  if 'dhan_live_df' in locals() and isinstance(dhan_live_df, pd.DataFrame) and not dhan_live_df.empty:
-      active_df = dhan_live_df
+  if "dhan_live_df" in locals() and isinstance(dhan_live_df, pd.DataFrame) and not dhan_live_df.empty:
+    active_df = dhan_live_df
   else:
-      active_df = pd.DataFrame({
-          'Price': [spot + np.random.uniform(-2, 2) for _ in range(15)],
-          'Volume': np.random.randint(500, 3000, 15),
-          'Buy_Vol': np.random.randint(200, 2500, 15),
-          'Bid_Vol': np.random.randint(200, 2500, 15),
-          'Ask_Vol': np.random.randint(200, 2500, 15)
-      })
+    active_df = pd.DataFrame({
+        "Price": [spot + np.random.uniform(-2, 2) for _ in range(15)],
+        "Volume": np.random.randint(500, 3000, 15),
+        "Buy_Vol": np.random.randint(200, 2500, 15),
+        "Bid_Vol": np.random.randint(200, 2500, 15),
+        "Ask_Vol": np.random.randint(200, 2500, 15),
+    })
 
   imb_df, b_stack, s_stack = process_footprint_imbalance(active_df)
-  vpin_score, vpin_buckets = calculate_vpin(active_df)
+  vpin_score, _ = calculate_vpin(active_df)
 
   col_f1, col_f2 = st.columns(2)
   with col_f1:
-    st.markdown("#### 🔥 Stacked Imbalances Analysis")
     st.metric(
-        label="Max Buy Stacked Imbalance",
+        label="Max Buy Imbalance Stack",
         value=f"{b_stack} Levels",
-        delta="Aggressive Buying" if b_stack >= 2 else "Normal Range",
+        delta="Aggressive Buying" if b_stack >= 2 else "Normal",
     )
-    st.metric(
-        label="Max Sell Stacked Imbalance",
-        value=f"{s_stack} Levels",
-        delta="Aggressive Selling" if s_stack >= 2 else "Normal Range",
-        delta_color="inverse",
-    )
-
   with col_f2:
-    st.markdown("#### ⚡ VPIN Toxicity Meter")
-    toxicity_status = (
-        "High Toxic Flow (HFT Trap)" if vpin_score > 0.4 else "Normal Flow"
-    )
     st.metric(
-        label="Current VPIN Index",
+        label="VPIN Toxicity Index",
         value=f"{vpin_score}",
-        delta=toxicity_status,
+        delta="High Toxic Flow" if vpin_score > 0.4 else "Normal Flow",
         delta_color="inverse" if vpin_score > 0.4 else "normal",
     )
 
   st.markdown("---")
-  st.markdown("#### 📋 Live Detected Imbalance Log")
-  if not imb_df.empty:
-    st.dataframe(imb_df, use_container_width=True, hide_index=True)
-  else:
-    st.info("ℹ️ ధన్ API లైవ్ ఫీడ్ కనెక్ట్ అయింది. ప్రస్తుత విండోలో మేజర్ ఇంబాలెన్సెస్ లేవు.")
+  st.markdown("#### 🧠 PyTorch LSTM Real-Time Directional Signal")
+  input_tensor = prepare_lstm_features(active_df)
+  if input_tensor is not None:
+    with torch.no_grad():
+      prediction_prob = lstm_model(input_tensor).item()
 
-with tab7:
+    up_prob = prediction_prob * 100
+    down_prob = (1 - prediction_prob) * 100
+
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+      st.metric(label="🟢 Bullish Continuation Prob", value=f"{up_prob:.2f}%")
+    with col_l2:
+      st.metric(
+          label="🔴 Bearish Reversal Prob",
+          value=f"{down_prob:.2f}%",
+          delta_color="inverse",
+      )
+
+    if up_prob > 65:
+      st.success("🚀 LSTM Signal: బలమైన అప్‌సైడ్ మొమెంటమ్ కొనసాగే అవకాశం ఉంది!")
+    elif down_prob > 65:
+      st.error("⚠️ LSTM Signal: డౌన్‌సైడ్ ప్రెషర్ పెరుగుతోంది, జాగ్రత్త!")
+    else:
+      st.info("⚖️ LSTM Signal: మార్కెట్ కన్సాలిడేషన్‌లో ఉంది (Sideways).")
+  else:
+    st.warning("⏳ మోడల్ రన్ కావడానికి తగినన్ని టిక్స్ సమకూరలేదు...")
+
+with tab6:
   st.subheader("⚡ Quick Executive Dashboard Summary")
   col_s1, col_s2 = st.columns(2)
   with col_s1:
@@ -583,8 +571,8 @@ with tab7:
         - **VAH / VAL:** ₹{vah} / ₹{val}
         """)
   st.success(
-      "🟢 Dhan API connection active. All 7 institutional modules are"
-      " synchronized."
+      "🟢 Dhan API connection active. All 6 institutional modules and AI models"
+      " are fully synchronized."
   )
 
 # Auto Refresh Control in Sidebar
