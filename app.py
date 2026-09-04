@@ -4,20 +4,13 @@ import time
 import numpy as np
 import pandas as pd
 import streamlit as st
-
-# TensorFlow సురక్షితమైన హ్యాండ్లింగ్ (ఎర్రర్ రాకుండా)
-try:
-  import tensorflow as tf
-  from tensorflow.keras.layers import Dense, Input, LSTM
-  from tensorflow.keras.models import Sequential
-
-  TF_AVAILABLE = True
-except ImportError:
-  TF_AVAILABLE = False
+import tensorflow as tf
+from tensorflow.keras.layers import Dense, Input, LSTM
+from tensorflow.keras.models import Sequential
 
 # Page Config
 st.set_page_config(
-    page_title="NIFTY Institutional Quant Engine & AI",
+    page_title="NIFTY Institutional Quant Engine & LSTM AI",
     page_icon="⚡",
     layout="wide",
 )
@@ -25,42 +18,26 @@ st.set_page_config(
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
-# Custom Dark Styling & Horizontal Tabs Fix
+# Custom Dark Styling
 st.markdown(
     """
 <style>
 .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
 .stTabs [data-baseweb="tab-list"] {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 4px;
-    background-color: #161B22;
-    padding: 6px;
-    border-radius: 8px;
+    display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px;
+    background-color: #161B22; padding: 6px; border-radius: 8px;
 }
 .stTabs [data-baseweb="tab"] {
-    background-color: #21262D;
-    color: #8B949E;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-weight: 600;
-    font-size: 13px;
-    white-space: nowrap;
+    background-color: #21262D; color: #8B949E; border-radius: 4px;
+    padding: 8px 12px; font-weight: 600; font-size: 13px; white-space: nowrap;
 }
-.stTabs [aria-selected="true"] {
-    background-color: #238636 !important;
-    color: #FFFFFF !important;
-}
+.stTabs [aria-selected="true"] { background-color: #238636 !important; color: #FFFFFF !important; }
 .row-bull-box { background-color: rgba(0, 200, 83, 0.12); border: 1px solid #00C853; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
 .row-bear-box { background-color: rgba(213, 0, 0, 0.12); border: 1px solid #D50000; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
 .explosion-alert-box { background: linear-gradient(135deg, rgba(255, 23, 68, 0.2), rgba(255, 152, 0, 0.2)); border: 2px solid #FF1744; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 12px; }
 .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .darkpool-card { background: linear-gradient(135deg, rgba(0, 150, 136, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #009688; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .trap-card { background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(213, 0, 0, 0.15)); border: 1px solid #FF9800; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-.rank-card-best { background-color: rgba(0, 200, 83, 0.15); border-left: 5px solid #00E676; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-.rank-card-high { background-color: rgba(41, 182, 246, 0.15); border-left: 5px solid #29B6F6; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-.rank-card-mod { background-color: rgba(255, 167, 38, 0.15); border-left: 5px solid #FFA726; padding: 10px; border-radius: 6px; margin-bottom: 8px; }
 .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .oi-short-buildup { background-color: #D50000; color: #FFF; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
@@ -87,7 +64,7 @@ val_migration = np.random.choice([
     "BALANCED RANGE (Consolidation)",
 ])
 
-st.title("⚡ NIFTY Institutional Quant Engine & AI")
+st.title("⚡ NIFTY Institutional Quant Engine & LSTM AI")
 st.success(f"🟢 Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
 st.caption(f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM: **{atm_strike}**")
 
@@ -119,7 +96,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "🔮 GEX & Gamma Walls",
     "🌊 Skew, Dark Pools & VAH",
     "⚡ Summary",
-    "🤖 AI Trend Predictor",
+    "🤖 LSTM AI Predictor",
 ])
 
 # TAB 1: Flow & OI
@@ -278,52 +255,61 @@ with tab6:
   st.subheader("⚡ Quick Executive Dashboard Summary")
   st.success("🟢 All 6 unified modules and quantitative algorithms are active.")
 
-# TAB 7: AI Predictor (TensorFlow లేకున్నా పనిచేసేలా సురక్షితమైన కోడ్)
+# TAB 7: LSTM AI Predictor
 with tab7:
-  st.subheader("🤖 AI Trend & Price Predictor")
+  st.subheader("🤖 NIFTY Deep Learning LSTM Trend Predictor")
   st.markdown(
-      "ఈ మాడ్యూల్ మార్కెట్ డేటాను విశ్లేషించి తదుపరి మూవ్‌మెంట్‌ను ప్రిడిక్ట్"
-      " చేస్తుంది."
+      "ఈ మాడ్యూల్ టెన్సర్‌ఫ్లో మరియు కెరాస్ (TensorFlow/Keras) ఆధారంగా రియల్"
+      " **LSTM (Long Short-Term Memory)** నెట్‌వర్క్‌ను రన్ చేసి తదుపరి"
+      " మూవ్‌మెంట్‌ను ప్రిడిక్ట్ చేస్తుంది."
   )
 
-  lookback_window = st.slider("Lookback Steps", 10, 50, 20)
+  col_l1, col_l2 = st.columns(2)
+  with col_l1:
+    epochs = st.slider("Training Epochs", 5, 30, 10)
+    batch_size = st.selectbox("Batch Size", [16, 32, 64], index=0)
+  with col_l2:
+    lookback_window = st.slider("Lookback Steps", 10, 50, 20)
 
-  if st.button("🚀 Run AI Neural Prediction"):
-    with st.spinner("⏳ AI మోడల్ విశ్లేషిస్తోంది..."):
+  if st.button("🚀 Train & Predict via Live LSTM Model"):
+    with st.spinner(
+        "⏳ LSTM న్యూరల్ నెట్‌వర్క్ మోడల్ డేటాతో ట్రైన్ అవుతోంది..."
+    ):
       np.random.seed(42)
       time_steps_arr = np.linspace(0, 150, 600)
       dummy_data = (
           spot + (np.sin(time_steps_arr) * 50) + np.random.normal(0, 3.5, 600)
       )
 
-      # ఒకవేళ tensorflow అందుబాటులో ఉంటే LSTM మోడల్ రన్ అవుతుంది, లేదంటే నంపై ద్వారా ప్రిడిక్షన్ వస్తుంది
-      if TF_AVAILABLE:
-        data_min, data_max = np.min(dummy_data), np.max(dummy_data)
-        norm_data = (dummy_data - data_min) / (data_max - data_min)
-        X, y = [], []
-        for i in range(lookback_window, len(norm_data)):
-          X.append(norm_data[i - lookback_window : i])
-          y.append(norm_data[i])
-        X, y = np.array(X), np.array(y)
-        X = np.reshape(X, (X.shape[0], X.shape[1], 1))
+      data_min = np.min(dummy_data)
+      data_max = np.max(dummy_data)
+      normalized_data = (dummy_data - data_min) / (data_max - data_min)
 
-        model = Sequential([
-            Input(shape=(X.shape[1], 1)),
-            LSTM(30, return_sequences=False),
-            Dense(1),
-        ])
-        model.compile(optimizer="adam", loss="mean_squared_error")
-        model.fit(X, y, epochs=5, batch_size=32, verbose=0)
+      X, y = [], []
+      for i in range(lookback_window, len(normalized_data)):
+        X.append(normalized_data[i - lookback_window : i])
+        y.append(normalized_data[i])
+      X, y = np.array(X), np.array(y)
+      X = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
-        last_seq = norm_data[-lookback_window:].reshape(1, lookback_window, 1)
-        pred_scaled = model.predict(last_seq, verbose=0)[0][0]
-        pred_price = pred_scaled * (data_max - data_min) + data_min
-      else:
-        # టెన్సర్‌ఫ్లో లేనప్పుడు నంపై ఆధారిత ప్రిడిక్షన్
-        pred_price = spot + np.random.uniform(-15, 18)
+      model = Sequential([
+          Input(shape=(X.shape[1], 1)),
+          LSTM(40, return_sequences=False),
+          Dense(20),
+          Dense(1),
+      ])
+      model.compile(optimizer="adam", loss="mean_squared_error")
+      model.fit(X, y, epochs=epochs, batch_size=batch_size, verbose=0)
 
+      last_sequence = normalized_data[-lookback_window:].reshape(
+          1, lookback_window, 1
+      )
+      pred_scaled = model.predict(last_sequence, verbose=0)[0][0]
+
+      pred_price = pred_scaled * (data_max - data_min) + data_min
       price_diff = pred_price - spot
-      st.success("✅ AI ప్రిడిక్షన్ విజయవంతంగా పూర్తయింది!")
+
+      st.success("✅ LSTM న్యూరల్ నెట్‌వర్క్ మోడల్ విజయవంతంగా శిక్షణ పొందింది!")
 
       col_res1, col_res2, col_res3 = st.columns(3)
       with col_res1:
@@ -334,7 +320,7 @@ with tab7:
         )
       with col_res2:
         st.metric(
-            label="AI Next Step Target",
+            label="LSTM Next Step Target",
             value=f"₹{pred_price:,.2f}",
             delta=f"{round(price_diff, 2)} pts",
         )
