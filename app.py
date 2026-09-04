@@ -158,14 +158,15 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-# Tabs including new features
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+# Tabs including Pro Analytics
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Flow Cards", 
     "🎯 Strike Flow", 
     "📈 Futures & OI",
     "📍 Volume POC",
     "⏳ MTF Matrix",
-    "🏆 Win Probability"
+    "🏆 Win Probability",
+    "🔬 Pro Analytics"
 ])
 
 with tab1:
@@ -178,7 +179,6 @@ with tab1:
         side_badge = '<span class="badge-bull">BULL</span>' if is_bull else '<span class="badge-bear">BEAR</span>'
         stk = atm_strike + (-50 if is_bull else 50)
         
-        # Detailed Flow Info restored here
         state_text = np.random.choice(["STRONG ALIGNMENT", "FLOW ONLY | No wall touch", "MOMENTUM SPIKE"])
         ce_val = round(np.random.uniform(10, 90), 1)
         pe_val = round(np.random.uniform(10, 90), 1)
@@ -211,7 +211,7 @@ with tab3:
     
     st.markdown(f"""
         <div style="background:#161B22; padding:15px; border-radius:8px; border:1px solid #29B6F6; margin-bottom:12px;">
-            <h4 style="color:#29B6F6; margin:0 0 8px 0;">⚡ LIVE OI BUILdup TRACKER</h4>
+            <h4 style="color:#29B6F6; margin:0 0 8px 0;">⚡ LIVE OI BUILDUP TRACKER</h4>
             <p style="margin:4px 0; font-size:13px;">Fut Price: <strong>₹{fut_price:,.2f}</strong> | ATM Strike: <strong>{atm_strike}</strong></p>
             <div style="margin-top:10px;">
                 Current Market Classification: <span class="{oi_badge_class}">{current_oi_status}</span>
@@ -283,6 +283,31 @@ with tab6:
             <div style="font-size: 11px; color: #8B949E; margin-top: 4px;">{rec}</div>
         </div>
         """, unsafe_allow_html=True)
+
+with tab7:
+    st.subheader("🔬 Institutional Pro Analytics & PCR")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="Live PCR (Put-Call Ratio)", value="1.14", delta="+0.08 (Bullish)")
+    with col2:
+        st.metric(label="Max Pain Strike", value=f"{atm_strike}", delta="Neutral Zone")
+    with col3:
+        st.metric(label="Flow Intensity Score", value="78 / 100", delta="Strong Buyers", delta_color="normal")
+        
+    st.markdown("---")
+    st.markdown("### 📊 Advanced Order Flow Imbalance (ATM ± 3)")
+    
+    pro_data = [
+        {"Strike": atm_strike - 100, "Call OI Chg": "+12.4L", "Put OI Chg": "-4.1L", "Imbalance": "Strong Bearish Wall"},
+        {"Strike": atm_strike - 50, "Call OI Chg": "+5.2L", "Put OI Chg": "+15.8L", "Imbalance": "Bullish Accumulation"},
+        {"Strike": atm_strike, "Call OI Chg": "-8.5L", "Put OI Chg": "+22.1L", "Imbalance": "Heavy Put Writing (Support)"},
+        {"Strike": atm_strike + 50, "Call OI Chg": "+18.3L", "Put OI Chg": "-2.0L", "Imbalance": "Call Resistance"},
+        {"Strike": atm_strike + 100, "Call OI Chg": "+25.6L", "Put OI Chg": "-6.4L", "Imbalance": "Strong Bear Wall"}
+    ]
+    st.dataframe(pd.DataFrame(pro_data), use_container_width=True, hide_index=True)
+    
+    st.info("💡 **ప్రొఫెషనల్ టిప్:** పుట్ రైటింగ్ (Put Writing) భారీగా పెరిగి, కాల్ రైటింగ్ తగ్గుతుంటే మార్కెట్ పైకి వెళ్లే అవకాశాలు 80% పైగా ఉంటాయి.")
 
 # Auto Refresh
 st.sidebar.title("⚡ Control Panel")
