@@ -1,28 +1,16 @@
-import subprocess
-import sys
-
-# requirements.txt లేకుండా డైరెక్ట్‌గా ప్యాకేజీలను ఇన్‌స్టాల్ చేయడానికి
-try:
-  import dhanhq
-except ImportError:
-  subprocess.check_call([
-      sys.executable,
-      "-m",
-      "pip",
-      "install",
-      "dhanhq",
-      "streamlit",
-      "pandas",
-      "numpy",
-  ])
-  import dhanhq
-
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from dhanhq import dhanhq
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+# Safe import for dhanhq to prevent crashing
+try:
+  from dhanhq import dhanhq
+
+  DHAN_AVAILABLE = True
+except ImportError:
+  DHAN_AVAILABLE = False
 
 # Page Config
 st.set_page_config(
@@ -38,28 +26,28 @@ CLIENT_ID = "YOUR_DHAN_CLIENT_ID"
 ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
 
 # ధన్ క్లైంట్ కనెక్షన్
-try:
-  dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
-except Exception:
-  dhan = None
+dhan = None
+if DHAN_AVAILABLE:
+  try:
+    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+  except Exception:
+    dhan = None
 
 
 # ధన్ API నుండి లైవ్ స్పాట్ & ఫ్యూచర్ ప్రైస్ తెప్పించే ఫంక్షన్
 def get_live_market_data():
   try:
     if dhan:
-      # Nifty 50 Index Security ID: '13', Segment: 'IDX_I'
       response = dhan.get_ltp_data(
           security_list=[{"security_id": "13", "exchange_segment": "IDX_I"}]
       )
       if response and "data" in response:
         spot_val = float(response["data"].get("13", {}).get("last_price", 0))
         if spot_val > 0:
-          return spot_val, spot_val + 18.5  # లైవ్ స్పాట్ మరియు ఫ్యూచర్ ప్రైస్
+          return spot_val, spot_val + 18.5
   except Exception:
     pass
 
-  # API కనెక్ట్ కాని సమయంలో లేదా ఎర్రర్ వస్తే ఫాల్‌బ్యాక్ ప్రైస్
   return 24225.50, 24244.00
 
 
@@ -105,9 +93,15 @@ val = atm_strike - 75
 val_migration = "UPWARD MIGRATION (Bullish Accumulation)"
 
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Live)")
-st.success(
-    f"🟢 Dhan API Live Connected | {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
-)
+if DHAN_AVAILABLE:
+  st.success(
+      f"🟢 Dhan API Connected | {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
+  )
+else:
+  st.warning(
+      "⚠️ `dhanhq` library not found in environment. Running in fallback mode."
+  )
+
 st.caption(
     f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM:"
     f" **{atm_strike}**"
@@ -367,7 +361,7 @@ def render_live_dashboard():
             - **Call / Put Walls:** {c_wall} / {p_wall}
             - **POC Strike:** {poc_strike}
             """)
-    st.success("🟢 Dhan Live API Active & Refreshing Every 5 Secs.")
+    st.success("🟢 Dashboard Active & Refreshing Every 5 Secs.")
 
 
 # Render Dashboard Fragment
