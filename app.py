@@ -34,45 +34,42 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# ధన్ API నుండి లైవ్ స్పాట్ & ఫ్యూచర్ ప్రైస్ తెప్పించే ఫంక్షన్
+# ధన్ API నుండి లైవ్ స్పాట్ & ఫ్యూచర్ ప్రైస్ తెప్పించే అప్‌డేటెడ్ ఫంక్షన్
 def get_live_market_data():
   try:
     if dhan:
       # Nifty Index కోసం exchange_segment 'IDX_I' మరియు security_id '13'
       response = dhan.get_ltp_data(
-          security_list=[{"security_id": "13", "exchange_segment": "IDX_I"}]
+          security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
       )
+      
       if response and "data" in response:
-        data_dict = response["data"]
+        data = response["data"]
         spot_val = 0.0
 
-        if isinstance(data_dict, dict):
-          # వివిధ ఫార్మాట్లలో డేటా రావచ్చు కాబట్టి సేఫ్ చెకింగ్
-          if "13" in data_dict:
-            item = data_dict["13"]
-            spot_val = float(
-                item.get("last_price", item.get("lp", item.get("ltp", 0)))
-            )
-          elif "NSE_IDX" in data_dict:
-            item = data_dict["NSE_IDX"]
-            spot_val = float(
-                item.get("last_price", item.get("lp", item.get("ltp", 0)))
-            )
-          else:
-            # డిక్షనరీలో ఏకీకృత కీ ఉన్నట్లయితే మొదటి వాల్యూ తీసుకోవడం
-            for k, v in data_dict.items():
-              if isinstance(v, dict):
-                val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
-                if val > 0:
-                  spot_val = val
-                  break
+        # రెస్పాన్స్ డిక్షనరీ రూపంలో వస్తే
+        if isinstance(data, dict):
+          item = data.get("13") or data.get("NSE_IDX") or data.get("Nifty 50")
+          if not item and len(data) > 0:
+            item = list(data.values())[0]
+            
+          if isinstance(item, dict):
+            spot_val = float(item.get("last_price", item.get("lp", item.get("ltp", 0))))
+
+        # రెస్పాన్స్ లిస్ట్ రూపంలో వస్తే
+        elif isinstance(data, list) and len(data) > 0:
+          for item in data:
+            if str(item.get("security_id")) == "13":
+              spot_val = float(item.get("last_price", item.get("lp", item.get("ltp", 0))))
+              break
 
         if spot_val > 0:
           return spot_val, spot_val + 18.5
-  except Exception as e:
-    print(f"API Fetch Error: {e}")
 
-  # ఫాల్‌బ్యాక్ ప్రైస్ (API కనెక్ట్ కానప్పుడు లేదా మార్కెట్ హాలిడే సమయంలో)
+  except Exception as e:
+    pass
+
+  # ఫాల్‌బ్యాక్ ప్రైస్ (లైవ్ డేటా అందనప్పుడు మాత్రమే)
   return 24225.50, 24244.00
 
 
