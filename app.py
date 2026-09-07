@@ -25,7 +25,8 @@ ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
 dhan = None
 if DHAN_AVAILABLE:
   try:
-    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+    # సరియైన కీవర్డ్ ఆర్గ్యుమెంట్స్ తో ఇనిషియలైజేషన్
+    dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
   except Exception as e:
     st.error(f"Dhan Init Error: {e}")
 
@@ -35,7 +36,6 @@ def get_live_market_data():
     return 6000.00, 6010.00
 
   try:
-    # MCX కమోడిటీ క్రూడాయిల్ కోసం 'MCX_COMM' మరియు సెక్యూరిటీ ఐడీ
     response = dhan.get_ltp_data(
         security_list=[{"exchange_segment": "MCX_COMM", "security_id": "481575"}]
     )
