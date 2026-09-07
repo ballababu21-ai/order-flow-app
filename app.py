@@ -38,16 +38,41 @@ if DHAN_AVAILABLE:
 def get_live_market_data():
   try:
     if dhan:
+      # Nifty Index కోసం exchange_segment 'IDX_I' మరియు security_id '13'
       response = dhan.get_ltp_data(
           security_list=[{"security_id": "13", "exchange_segment": "IDX_I"}]
       )
       if response and "data" in response:
-        spot_val = float(response["data"].get("13", {}).get("last_price", 0))
+        data_dict = response["data"]
+        spot_val = 0.0
+
+        if isinstance(data_dict, dict):
+          # వివిధ ఫార్మాట్లలో డేటా రావచ్చు కాబట్టి సేఫ్ చెకింగ్
+          if "13" in data_dict:
+            item = data_dict["13"]
+            spot_val = float(
+                item.get("last_price", item.get("lp", item.get("ltp", 0)))
+            )
+          elif "NSE_IDX" in data_dict:
+            item = data_dict["NSE_IDX"]
+            spot_val = float(
+                item.get("last_price", item.get("lp", item.get("ltp", 0)))
+            )
+          else:
+            # డిక్షనరీలో ఏకీకృత కీ ఉన్నట్లయితే మొదటి వాల్యూ తీసుకోవడం
+            for k, v in data_dict.items():
+              if isinstance(v, dict):
+                val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
+                if val > 0:
+                  spot_val = val
+                  break
+
         if spot_val > 0:
           return spot_val, spot_val + 18.5
-  except Exception:
-    pass
+  except Exception as e:
+    print(f"API Fetch Error: {e}")
 
+  # ఫాల్‌బ్యాక్ ప్రైస్ (API కనెక్ట్ కానప్పుడు లేదా మార్కెట్ హాలిడే సమయంలో)
   return 24225.50, 24244.00
 
 
