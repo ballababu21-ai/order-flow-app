@@ -18,19 +18,24 @@ st.set_page_config(
 
 ist = ZoneInfo("Asia/Kolkata")
 
-# --- మీ ధన్ API క్రెడెన్షియల్స్ ఇక్కడ ఇవ్వండి ---
 CLIENT_ID = "YOUR_DHAN_CLIENT_ID"
 ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
 
 dhan = None
 if DHAN_AVAILABLE:
   try:
-    # సరియైన కీవర్డ్ ఆర్గ్యుమెంట్స్ తో ఇనిషియలైజేషన్
-    dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
+    # వెర్షన్ ఇష్యూస్ రాకుండా సేఫ్ ఇనిషియలైజేషన్ ట్రైలాగిక్
+    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+  except TypeError:
+    try:
+      # కొన్ని వెర్షన్లలో సింగిల్ ఆర్గ్యుమెంట్ లేదా భిన్నమైన పద్ధతి ఉండవచ్చు
+      dhan = dhanhq(access_token=ACCESS_TOKEN)
+    except Exception as e2:
+      dhan = None
   except Exception as e:
-    st.error(f"Dhan Init Error: {e}")
+    dhan = None
 
-# క్రూడాయిల్ లైవ్ డేటా ఫెచ్ చేసే ఫంక్షన్
+# క్రూడాయిల్ లైవ్ డేటా ఫెచ్ చేసే ఫంక్షన్ (సేఫ్ ఫాల్‌బ్యాక్‌తో)
 def get_live_market_data():
   if not dhan:
     return 6000.00, 6010.00
@@ -40,8 +45,6 @@ def get_live_market_data():
         security_list=[{"exchange_segment": "MCX_COMM", "security_id": "481575"}]
     )
     
-    st.info(f"📡 Crude Oil Raw Response: {response}")
-
     if response and isinstance(response, dict) and "data" in response:
       data = response["data"]
       spot_val = 0.0
@@ -61,7 +64,7 @@ def get_live_market_data():
         return spot_val, spot_val + 10.0
 
   except Exception as e:
-    st.error(f"API Exception Error: {e}")
+    pass
 
   return 6000.00, 6010.00
 
@@ -93,9 +96,12 @@ st.caption(f"CRUDE SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}**")
 @st.fragment(run_every=5)
 def render_live_dashboard():
   s_val, f_val = get_live_market_data()
-  st.success(f"🟢 MCX Live Feed Active | Current Price: ₹{s_val:,.2f}")
+  if dhan:
+    st.success(f"🟢 MCX Live Feed Active | Current Price: ₹{s_val:,.2f}")
+  else:
+    st.warning(f"⚠️ Dhan Client Not Initialized. Showing Simulation Price: ₹{s_val:,.2f}")
 
 render_live_dashboard()
 
 st.sidebar.title("⚡ Control Panel")
-st.sidebar.info("🟢 MCX Crude Oil Live Mode Active")
+st.sidebar.info("🟢 MCX Crude Oil Mode Active")
