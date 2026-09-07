@@ -1,3 +1,22 @@
+import subprocess
+import sys
+
+# requirements.txt లేకుండా డైరెక్ట్‌గా ప్యాకేజీలను ఇన్‌స్టాల్ చేయడానికి
+try:
+  import dhanhq
+except ImportError:
+  subprocess.check_call([
+      sys.executable,
+      "-m",
+      "pip",
+      "install",
+      "dhanhq",
+      "streamlit",
+      "pandas",
+      "numpy",
+  ])
+  import dhanhq
+
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dhanhq import dhanhq
