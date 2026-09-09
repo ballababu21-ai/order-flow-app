@@ -33,50 +33,29 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే అప్‌డేటెడ్ పటిష్టమైన ఫంక్షన్
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే డీబగ్గింగ్ ఫంక్షన్
 def get_live_market_data():
   try:
     if dhan:
-      # Nifty Index (IDX_I, 13) మరియు NIFTYBEES (NSE_EQ, 1333) రెండింటిని చెక్ చేస్తుంది
+      # ధన్ API నుండి లైవ్ డేటా పిలవడం
       response = dhan.get_ltp_data(
-          security_list=[
-              {"exchange_segment": "IDX_I", "security_id": "13"},
-              {"exchange_segment": "NSE_EQ", "security_id": "1333"}
-          ]
+          security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
       )
       
-      if response and isinstance(response, dict):
+      if response:
         data = response.get("data", response)
-        
         if isinstance(data, dict):
-          # 1. Direct check for Nifty Index or Bees
           for k, v in data.items():
-            val = 0.0
             if isinstance(v, dict):
               val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
-            elif isinstance(v, (int, float)):
-              val = float(v)
-            
-            if val > 0:
-              if str(k) == "1333" or (isinstance(v, dict) and str(v.get("security_id")) == "1333"):
-                spot_val = val * 10  # NIFTYBEES to Nifty Spot conversion
-                return spot_val - 18.5, spot_val + 18.5
-              elif val > 1000:  # Direct Nifty Spot / Future value
+              if val > 0:
                 return val - 18.5, val
-
-        elif isinstance(data, list):
-          for item in data:
-            val = float(item.get("last_price", item.get("lp", item.get("ltp", 0))))
-            sec_id = str(item.get("security_id"))
-            if val > 0:
-              if sec_id == "1333":
-                spot_val = val * 10
-                return spot_val - 18.5, spot_val + 18.5
-              elif sec_id == "13" or val > 1000:
-                return val - 18.5, val
-
+            elif isinstance(v, (int, float)) and v > 0:
+              return float(v) - 18.5, float(v)
+              
+      st.warning(f"Dhan Response Empty/Invalid: {response}")
   except Exception as e:
-    pass
+    st.error(f"Dhan API Exception: {str(e)}")
 
   return 24225.50, 24244.00
 
