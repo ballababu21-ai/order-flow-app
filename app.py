@@ -33,12 +33,13 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే అప్‌డేటెడ్ ఫంక్షన్
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే అప్‌డేటెడ్ ఫంక్షన్ (NSE_FNO ఫ్యూచర్ ద్వారా)
 def get_live_market_data():
   try:
     if dhan:
+      # ఇండెక్స్ బదులుగా NSE_FNO సెగ్మెంట్ ద్వారా లైవ్ ఫ్యూచర్ ప్రైస్ తెప్పించడం
       response = dhan.get_ltp_data(
-          security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
+          security_list=[{"exchange_segment": "NSE_FNO", "security_id": "13"}]
       )
       
       if response and isinstance(response, dict):
@@ -61,7 +62,7 @@ def get_live_market_data():
               break
 
         if spot_val > 0:
-          return spot_val, spot_val + 18.5
+          return spot_val - 18.5, spot_val
 
   except Exception as e:
     pass
