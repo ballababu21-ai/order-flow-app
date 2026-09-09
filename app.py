@@ -18,16 +18,33 @@ st.set_page_config(
 
 ist = ZoneInfo("Asia/Kolkata")
 
-# --- st.secrets నుండి క్రెడెన్షియల్స్ తీసుకోవడం ---
-CLIENT_ID = st.secrets.get("CLIENT_ID", "")
-ACCESS_TOKEN = st.secrets.get("ACCESS_TOKEN", "")
+# --- క్రెడెన్షియల్స్ రీడ్ చేసే సేఫ్ మెథడ్ (secrets లేదా nested dict చెక్ చేయడం) ---
+CLIENT_ID = ""
+ACCESS_TOKEN = ""
+
+try:
+  if "CLIENT_ID" in st.secrets:
+    CLIENT_ID = st.secrets["CLIENT_ID"]
+  elif "dhan" in st.secrets and "CLIENT_ID" in st.secrets["dhan"]:
+    CLIENT_ID = st.secrets["dhan"]["CLIENT_ID"]
+except Exception:
+  pass
+
+try:
+  if "ACCESS_TOKEN" in st.secrets:
+    ACCESS_TOKEN = st.secrets["ACCESS_TOKEN"]
+  elif "dhan" in st.secrets and "ACCESS_TOKEN" in st.secrets["dhan"]:
+    ACCESS_TOKEN = st.secrets["dhan"]["ACCESS_TOKEN"]
+except Exception:
+  pass
 
 # ధన్ క్లైంట్ ఇనిషియలైజేషన్
 dhan = None
 if DHAN_AVAILABLE and CLIENT_ID and ACCESS_TOKEN:
   try:
-    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
-  except Exception:
+    # కొన్నిసార్లు టోకెన్లలో స్పేస్‌లు ఉంటే తొలగించడానికి .strip() వాడాలి
+    dhan = dhanhq(str(CLIENT_ID).strip(), str(ACCESS_TOKEN).strip())
+  except Exception as e:
     dhan = None
 
 
@@ -37,7 +54,8 @@ def get_live_market_data():
     return (
         None,
         None,
-        "Dhan API క్లైంట్ కనెక్ట్ కాలేదు. st.secrets లో వివరాలు చెక్ చేయండి.",
+        "Dhan API క్లైంట్ ఇనిషియలైజ్ కాలేదు. st.secrets లోని కీస్ (CLIENT_ID,"
+        " ACCESS_TOKEN) సరిగ్గా ఉన్నాయో లేదో వెరిఫై చేయండి.",
     )
 
   try:
@@ -87,7 +105,12 @@ def get_live_market_data():
     if spot_val and spot_val > 0:
       return spot_val, fut_val if (fut_val and fut_val > 0) else spot_val, None
     else:
-      return None, None, f"API రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ లేదు: {response}"
+      return (
+          None,
+          None,
+          f"API రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ డేటా లేదు. రెస్పాన్స్:"
+          f" {response}",
+      )
 
   except Exception as e:
     return None, None, f"API ఎర్రర్: {str(e)}"
@@ -112,9 +135,6 @@ st.markdown(
 .wall-touch-box { background-color: rgba(255, 193, 7, 0.15); border: 1px solid #FFC107; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
 .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-.oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-.oi-short-buildup { background-color: #D50000; color: #FFF; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-.oi-long-unwinding { background-color: #FFA726; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
 .badge-bear { background-color: #D50000; color: #FFF; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
 .txt-blue { color: #29B6F6; font-weight: bold; }
@@ -127,12 +147,13 @@ st.markdown(
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Live)")
 if dhan:
   st.success(
-      f"🟢 Dhan API Connected via Secrets | {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
+      f"🟢 Dhan API Connected Successfully |"
+      f" {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
   )
 else:
   st.error(
-      "❌ Dhan API కనెక్ట్ కాలేదు. దయచేసి Streamlit Secrets లో CLIENT_ID మరియు"
-      " ACCESS_TOKEN సరిగ్గా ఉన్నాయో లేదో చెక్ చేయండి."
+      "❌ Dhan API కనెక్ట్ కాలేదు. స్ట్రీమ్‌లిట్ సీక్రెట్స్‌లో `CLIENT_ID` మరియు"
+      " `ACCESS_TOKEN` సరిగ్గా ఉన్నాయో లేదో చెక్ చేయండి."
   )
 
 
@@ -183,8 +204,6 @@ def render_live_dashboard():
   )
 
   mtf_1m = "BULLISH"
-  mtf_3m = "BULLISH"
-  mtf_5m = "BULLISH"
   current_oi_status = "LONG BUILDUP"
 
   tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
