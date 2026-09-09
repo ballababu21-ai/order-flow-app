@@ -18,26 +18,26 @@ st.set_page_config(
 
 ist = ZoneInfo("Asia/Kolkata")
 
-# --- మీ ధన్ API క్రెడెన్షియల్స్ ఇక్కడ ఇవ్వండి ---
-CLIENT_ID = "YOUR_DHAN_CLIENT_ID"
-ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
+# --- st.secrets నుండి క్రెడెన్షియల్స్ తీసుకోవడం ---
+CLIENT_ID = st.secrets.get("CLIENT_ID", "")
+ACCESS_TOKEN = st.secrets.get("ACCESS_TOKEN", "")
 
 # ధన్ క్లైంట్ ఇనిషియలైజేషన్
 dhan = None
-if DHAN_AVAILABLE:
+if DHAN_AVAILABLE and CLIENT_ID and ACCESS_TOKEN:
   try:
     dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
   except Exception:
     dhan = None
 
 
-# కేవలం లైవ్ మార్కెట్ డేటా మాత్రమే ఫెచ్ చేసే ఫంక్షన్ (సిమ్యులేషన్ రద్దు)
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ఫంక్షన్
 def get_live_market_data():
   if not dhan:
     return (
         None,
         None,
-        "Dhan API క్లైంట్ కనెక్ట్ కాలేదు. క్రెడెన్షియల్స్ చెక్ చేయండి.",
+        "Dhan API క్లైంట్ కనెక్ట్ కాలేదు. st.secrets లో వివరాలు చెక్ చేయండి.",
     )
 
   try:
@@ -47,7 +47,7 @@ def get_live_market_data():
             {
                 "exchange_segment": "NSE_FNO",
                 "security_id": "55332",
-            },  # Nifty Current Month Future
+            },  # Nifty Future
         ]
     )
 
@@ -56,9 +56,7 @@ def get_live_market_data():
     if response and isinstance(response, dict):
       data = response.get("data", {})
 
-      # ధన్ API స్ట్రక్చర్ ప్రకారం డేటా పార్సింగ్
       if isinstance(data, dict):
-        # 1. డైరెక్ట్ సెగ్మెంట్ వైజ్ చెకింగ్
         idx_data = data.get("IDX_I", {})
         if isinstance(idx_data, dict):
           spot_val = float(
@@ -77,7 +75,6 @@ def get_live_market_data():
               )
           )
 
-        # 2. ఫ్లాట్ డిక్షనరీ లేదా డిఫరెంట్ ఫార్మాట్ ఉంటే లూప్ ద్వారా ఫెచ్ చేయడం
         if not spot_val or spot_val == 0:
           for seg, val_dict in data.items():
             if isinstance(val_dict, dict):
@@ -86,22 +83,11 @@ def get_live_market_data():
                   spot_val = float(price_val)
                 elif str(sec_id) == "55332":
                   fut_val = float(price_val)
-                elif isinstance(price_val, dict):
-                  p = float(
-                      price_val.get(
-                          "last_price",
-                          price_val.get("lp", price_val.get("ltp", 0)),
-                      )
-                  )
-                  if str(sec_id) == "13":
-                    spot_val = p
-                  elif str(sec_id) == "55332":
-                    fut_val = p
 
     if spot_val and spot_val > 0:
       return spot_val, fut_val if (fut_val and fut_val > 0) else spot_val, None
     else:
-      return None, None, f"API రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ డేటా లేదు: {response}"
+      return None, None, f"API రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ లేదు: {response}"
 
   except Exception as e:
     return None, None, f"API ఎర్రర్: {str(e)}"
@@ -139,12 +125,15 @@ st.markdown(
 
 # టైటిల్ సెక్షన్
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Live)")
-if DHAN_AVAILABLE:
+if dhan:
   st.success(
-      f"🟢 Dhan API Connected | {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
+      f"🟢 Dhan API Connected via Secrets | {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
   )
 else:
-  st.warning("⚠️ `dhanhq` library not found.")
+  st.error(
+      "❌ Dhan API కనెక్ట్ కాలేదు. దయచేసి Streamlit Secrets లో CLIENT_ID మరియు"
+      " ACCESS_TOKEN సరిగ్గా ఉన్నాయో లేదో చెక్ చేయండి."
+  )
 
 
 # వాల్ టచ్ మరియు అలైన్‌మెంట్ లాజిక్
@@ -168,17 +157,14 @@ def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
   return "ALIGNED", "Flow మరియు ట్రెండ్ ఒకే దిశలో ఉన్నాయి."
 
 
-# లైవ్ ఆటో-రిఫ్రెష్ ఫ్రాగ్మెంట్ (ప్రతీ 5 సెకన్లకు లైవ్ మార్కెట్ డేటా కోసం)
+# లైవ్ ఆటో-రిఫ్రెష్ ఫ్రాగ్మెంట్
 @st.fragment(run_every=5)
 def render_live_dashboard():
   now_local = datetime.now(ist)
   current_spot, current_fut, err_msg = get_live_market_data()
 
   if current_spot is None:
-    st.error(
-        f"🚨 లైవ్ డేటా ఫెచ్ కాలేదు! కారణం: {err_msg} (దయచేసి మార్కెట్ అవర్స్"
-        " లేదా API టోకెన్ చెక్ చేయండి)"
-    )
+    st.error(f"🚨 లైవ్ డేటా ఎర్రర్: {err_msg}")
     return
 
   current_atm = round(current_spot / 50) * 50
@@ -191,7 +177,6 @@ def render_live_dashboard():
   val = current_atm - 75
   poc_strike = current_atm
 
-  # టాప్ ప్రైస్ డిస్‌ప్లే
   st.markdown(
       f"SPOT: **₹{current_spot:,.2f}** | FUT: **₹{current_fut:,.2f}** | ATM:"
       f" **{current_atm}**"
@@ -245,7 +230,7 @@ def render_live_dashboard():
         <div style="display: flex; justify-content: space-between;">
         <strong>{t_str} (₹{current_spot})</strong> <span class="badge-bull">LIVE</span>
         </div>
-        <div style="font-size: 12px; margin-top:2px;">Dhan API Connected & Streaming Real-time Data</div>
+        <div style="font-size: 12px; margin-top:2px;">Dhan API Live Feed Connected</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -293,7 +278,7 @@ def render_live_dashboard():
 
   with tab5:
     st.subheader("📊 Footprint Delta & Market Flow Analytics")
-    st.success("🟢 మార్కెట్ ఆర్డర్ ఫ్లో లైవ్‌లో సింక్ అవుతోంది.")
+    st.success("🟢 మార్కెట్ డేటా లైవ్‌లో సింక్ అవుతోంది.")
 
   with tab6:
     st.subheader("⚡ Quick Executive Dashboard Summary")
@@ -301,7 +286,7 @@ def render_live_dashboard():
         - **Live Spot Price:** ₹{current_spot:,.2f}
         - **Live Futures Price:** ₹{current_fut:,.2f}
         - **ATM Strike:** {current_atm}
-        - **Data Status:** Active Live Feed from Dhan
+        - **Data Source:** Dhan Live API via Secrets
         """)
 
 
@@ -310,4 +295,4 @@ render_live_dashboard()
 
 # సైడ్‌బార్ కంట్రోల్ ప్యానెల్
 st.sidebar.title("⚡ Control Panel")
-st.sidebar.info("🟢 Pure Live Data Mode Active (No Simulation).")
+st.sidebar.info("🟢 Secrets Mode Active.")
