@@ -35,40 +35,83 @@ st.markdown(
     """
 <style>
 .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
-.stTabs [data-baseweb="tab-list"] { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; background-color: #161B22; padding: 6px; border-radius: 8px; }
-.stTabs [data-baseweb="tab"] { background-color: #21262D; color: #8B949E; border-radius: 4px; padding: 8px 12px; font-weight: 600; font-size: 13px; white-space: nowrap; }
-.stTabs [aria-selected="true"] { background-color: #238636 !important; color: #FFFFFF !important; }
-.gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.stTabs [data-baseweb="tab-list"] { 
+    display: flex; 
+    flex-wrap: wrap !important; 
+    gap: 4px; 
+    background-color: #161B22; 
+    padding: 6px; 
+    border-radius: 8px; 
+}
+.stTabs [data-baseweb="tab"] { 
+    background-color: #21262D; 
+    color: #8B949E; 
+    border-radius: 4px; 
+    padding: 6px 10px; 
+    font-weight: 600; 
+    font-size: 11px; 
+    flex: 1 1 auto;
+    text-align: center;
+}
+.stTabs [aria-selected="true"] { 
+    background-color: #238636 !important; 
+    color: #FFFFFF !important; 
+}
+.gex-card { 
+    background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); 
+    border: 1px solid #AB47BC; 
+    border-radius: 8px; 
+    padding: 12px; 
+    margin-bottom: 10px; 
+}
+.alert-box-call {
+    background-color: rgba(255, 23, 68, 0.15);
+    border-left: 5px solid #FF1744;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+.alert-box-put {
+    background-color: rgba(0, 200, 83, 0.15);
+    border-left: 5px solid #00C853;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+.alert-box-aligned {
+    background-color: rgba(33, 150, 243, 0.15);
+    border-left: 5px solid #2196F3;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.title("⚡ NIFTY Institutional Quant Engine (Colored Quant Mode)")
+st.title("⚡ NIFTY Institutional Quant Engine")
 st.success(
     f"🟢 Live Market Feed Active |"
     f" {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
 )
 
 
-def check_wall_and_alignment(price, c_wall, p_wall):
+def get_wall_status_html(price, c_wall, p_wall):
   if abs(price - c_wall) <= 20:
-    return "CALL WALL TOUCHED", "⚠️ ప్రైస్ కాల్ వాల్‌ను తాకింది!"
-  elif abs(price - p_wall) <= 20:
-    return "PUT WALL TOUCHED", "📍 ప్రైస్ పుట్ వాల్‌ను తాకింది!"
-  return "ALIGNED", "ఆర్డర్ ఫ్లో మరియు ట్రెండ్ ఒకే దిశలో ఉన్నాయి."
-
-
-def color_net_flow(val):
-  if val == "BULLISH":
     return (
-        "background-color: rgba(0, 200, 83, 0.2); color: #00C853; font-weight:"
-        " bold;"
+        '<div class="alert-box-call">⚠️ <b>CALL WALL TOUCHED:</b> ప్రైస్ కాల్'
+        f" వాల్ ({c_wall}) ను తాకింది! రెసిస్టెన్స్ గమనించండి.</div>"
+    )
+  elif abs(price - p_wall) <= 20:
+    return (
+        '<div class="alert-box-put">📍 <b>PUT WALL TOUCHED:</b> ప్రైస్ పుట్ వాల్'
+        f" ({p_wall}) ను తాకింది! సపోర్ట్ గమనించండి.</div>"
     )
   else:
     return (
-        "background-color: rgba(255, 23, 68, 0.2); color: #FF1744; font-weight:"
-        " bold;"
+        '<div class="alert-box-aligned">✅ <b>ALIGNED:</b> ఆర్డర్ ఫ్లో మరియు'
+        " ట్రెండ్ ఒకే దిశలో ఉన్నాయి.</div>"
     )
 
 
@@ -96,36 +139,46 @@ def render_live_dashboard():
 
   tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
       "📊 Flow & OI",
-      "🎯 Strikes & Matrix",
+      "🎯 Strikes",
       "🔮 GEX & Walls",
-      "🌊 Dark Pools & VAH",
-      "📊 Footprint & Analytics",
+      "🌊 Dark Pools",
+      "📊 Footprint",
       "⚡ Summary",
   ])
 
   with tab1:
-    st.subheader("⏱️ Live Order Flow & 9-Strikes Range Tracker")
-    st.info(
-        f"🎯 **Active 9-Strikes Range (Spot ± 4):**"
-        f" `{', '.join(map(str, active_strikes))}`"
-    )
-    status_type, status_msg = check_wall_and_alignment(
-        current_spot, c_wall, p_wall
-    )
-    st.success(f"**Alignment Status:** {status_type} — {status_msg}")
+    st.subheader("⏱️ Live Order Flow & Separate CE / PE Tables")
 
-    oi_data = []
+    # నీట్‌గా అలైన్ చేయబడిన వాల్ స్టేటస్ బాక్స్
+    st.markdown(
+        get_wall_status_html(current_spot, c_wall, p_wall),
+        unsafe_allow_html=True,
+    )
+
+    ce_data = []
+    pe_data = []
     for s in active_strikes:
-      oi_data.append({
-          "Strike": s,
+      ce_data.append({
+          "Strike (CE)": f"{s} CE",
           "Call OI": int(100000 + (s - current_atm) * 500),
-          "Put OI": int(120000 - (s - current_atm) * 400),
-          "Net Flow": "BULLISH" if s <= current_atm else "BEARISH",
+          "CE Trend": "RESISTANCE" if s > current_atm else "SUPPORT",
       })
-    df_oi = pd.DataFrame(oi_data)
-    # Pandas Styler map వాడటం జరిగింది
-    styled_df = df_oi.style.map(color_net_flow, subset=["Net Flow"])
-    st.dataframe(styled_df, use_container_width=True)
+      pe_data.append({
+          "Strike (PE)": f"{s} PE",
+          "Put OI": int(120000 - (s - current_atm) * 400),
+          "PE Trend": "SUPPORT" if s <= current_atm else "WEAK",
+      })
+
+    col_ce, col_pe = st.columns(2)
+    with col_ce:
+      st.markdown("### 🔴 Call Options (CE)")
+      df_ce = pd.DataFrame(ce_data)
+      st.dataframe(df_ce, use_container_width=True)
+
+    with col_pe:
+      st.markdown("### 🟢 Put Options (PE)")
+      df_pe = pd.DataFrame(pe_data)
+      st.dataframe(df_pe, use_container_width=True)
 
   with tab2:
     st.subheader("🎯 Specific Strikes, POC & MTF Matrix")
@@ -138,11 +191,11 @@ def render_live_dashboard():
       st.metric(label="ATM IV", value="13.45%", delta="-0.2%")
 
   with tab3:
-    st.subheader("🔮 Gamma Exposure (GEX) & Dealer Walls")
+    st.subheader("🔮 Gamma Exposure & Dealer Walls")
     st.markdown(
         f"""
         <div class="gex-card">
-        <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
+        <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma: {zero_gamma}</h4>
         <p style="color: #CCCCCC; margin:0;">Call Wall: <b>{c_wall}</b> | Put Wall: <b>{p_wall}</b></p>
         </div>
         """,
@@ -150,19 +203,19 @@ def render_live_dashboard():
     )
 
   with tab4:
-    st.subheader("🌊 Dark Pools, Vol Skew & VAH Migration")
+    st.subheader("🌊 Dark Pools, Vol Skew & VAH")
     col_p1, col_p2, col_p3 = st.columns(3)
     with col_p1:
-      st.metric(label="VAH (Value Area High)", value=f"₹{vah}")
+      st.metric(label="VAH", value=f"₹{vah}")
     with col_p2:
-      st.metric(label="POC (Point of Control)", value=f"₹{poc_strike}")
+      st.metric(label="POC", value=f"₹{poc_strike}")
     with col_p3:
-      st.metric(label="VAL (Value Area Low)", value=f"₹{val}")
+      st.metric(label="VAL", value=f"₹{val}")
 
   with tab5:
-    st.subheader("📊 Footprint Delta & Market Flow Analytics")
+    st.subheader("📊 Footprint Delta Analytics")
     delta_df = pd.DataFrame({
-        "Time / Window": ["12:00 - 12:15", "12:15 - 12:30", "12:30 - 12:45"],
+        "Time Window": ["12:00 - 12:15", "12:15 - 12:30", "12:30 - 12:45"],
         "Delta": ["+4,500", "+8,200", "+12,100"],
         "Imbalance": ["Strong Buy", "Aggressive Buy", "Institutional Accumulation"],
     })
@@ -181,4 +234,4 @@ def render_live_dashboard():
 render_live_dashboard()
 
 st.sidebar.title("⚡ Control Panel")
-st.sidebar.info("🟢 Colored Quant Suite Active.")
+st.sidebar.info("🟢 Wall Alignment & CE/PE Tables Active.")
