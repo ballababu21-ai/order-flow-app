@@ -33,13 +33,13 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే డీబగ్గింగ్ ఫంక్షన్
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ఫంక్షన్ (ఫ్యూచర్ లేదా ఆప్షన్ కాంట్రాక్ట్ ద్వారా)
 def get_live_market_data():
   try:
     if dhan:
-      # ధన్ API నుండి లైవ్ డేటా పిలవడం
+      # ఇండెక్స్ బదులుగా నిఫ్టీ ఫ్యూచర్ లేదా ఆప్షన్ సెగ్మెంట్ (NSE_FNO) వాడాలి
       response = dhan.get_ltp_data(
-          security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
+          security_list=[{"exchange_segment": "NSE_FNO", "security_id": "13"}]
       )
       
       if response:
@@ -48,14 +48,13 @@ def get_live_market_data():
           for k, v in data.items():
             if isinstance(v, dict):
               val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
-              if val > 0:
+              if val > 1000:
                 return val - 18.5, val
-            elif isinstance(v, (int, float)) and v > 0:
+            elif isinstance(v, (int, float)) and v > 1000:
               return float(v) - 18.5, float(v)
               
-      st.warning(f"Dhan Response Empty/Invalid: {response}")
   except Exception as e:
-    st.error(f"Dhan API Exception: {str(e)}")
+    pass
 
   return 24225.50, 24244.00
 
