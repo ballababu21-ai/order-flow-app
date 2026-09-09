@@ -23,19 +23,19 @@ ist = ZoneInfo("Asia/Kolkata")
 CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
-# సేఫ్ ధన్ క్లైంట్ ఇనిషియలైజేషన్ (TypeError రాకుండా హ్యాండిల్ చేయబడింది)
+# సేఫ్ ధన్ క్లైంట్ ఇనిషియలైజేషన్ (లేటెస్ట్ లైబ్రరీ సింటాక్స్ ప్రకారం సరిదిద్దబడింది)
 dhan = None
 if DHAN_AVAILABLE:
   try:
-    # మెథడ్ 1: డైరెక్ట్ కీవర్డ్ ఆర్గ్యుమెంట్స్
-    dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
-  except Exception:
+    # ఈ వెర్షన్ ప్రకారం dhanhq(client_id) అని ఇచ్చి, టోకెన్‌ను సెట్ చేయాలి
+    dhan = dhanhq(CLIENT_ID)
+    if hasattr(dhan, "set_access_token"):
+      dhan.set_access_token(ACCESS_TOKEN)
+  except Exception as e:
     try:
-      # మెథడ్ 2: ఆల్టర్నేటివ్ ఇనిషియలైజేషన్
-      dhan = dhanhq(CLIENT_ID)
-      if hasattr(dhan, "set_access_token"):
-        dhan.set_access_token(ACCESS_TOKEN)
-    except Exception as e:
+      # ఒకవేళ పాత పద్ధతి పనిచేస్తే
+      dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
+    except Exception:
       dhan = None
 
 
@@ -107,9 +107,7 @@ st.markdown(
 }
 .stTabs [aria-selected="true"] { background-color: #238636 !important; color: #FFFFFF !important; }
 .row-bull-box { background-color: rgba(0, 200, 83, 0.12); border: 1px solid #00C853; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
-.row-bear-box { background-color: rgba(213, 0, 0, 0.12); border: 1px solid #D50000; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
 .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-.oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .badge-bull { background-color: #00C853; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
 </style>
 """,
