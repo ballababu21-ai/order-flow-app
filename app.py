@@ -19,13 +19,11 @@ init_error = None
 try:
   from dhanhq import DhanContext, dhanhq
 
-  # అఫీషియల్ డాక్యుమెంటేషన్ ప్రకారం DhanContext వాడాలి
   dhan_context = DhanContext(CLIENT_ID, ACCESS_TOKEN)
   dhan = dhanhq(dhan_context)
 except Exception as e:
   init_error = str(e)
   try:
-    # ఫాల్‌బ్యాక్ పద్ధతిగా పాత వెర్షన్ ట్రై చేయడానికి
     dhan = dhanhq(str(CLIENT_ID), str(ACCESS_TOKEN))
     init_error = None
   except Exception as e2:
@@ -36,13 +34,35 @@ except Exception as e:
 def get_live_market_data():
   if not dhan:
     return None, None, f"ధన్ క్లైంట్ కనెక్ట్ కాలేదు. ఎర్రర్: {init_error}"
+
+  response = None
+  last_err = ""
+
+  # వివిధ లైబ్రరీ వెర్షన్లలో ఉండే మెథడ్ పేర్లను ఆటోమేటిక్‌గా చెక్ చేయడానికి లూప్
+  methods_to_try = ["get_ltp_data", "ltp", "get_market_data", "get_quotes"]
+  sec_list = [
+      {"exchange_segment": "IDX_I", "security_id": "13"},
+      {"exchange_segment": "NSE_FNO", "security_id": "55332"},
+  ]
+
+  for m_name in methods_to_try:
+    if hasattr(dhan, m_name):
+      try:
+        func = getattr(dhan, m_name)
+        # కొన్ని మెథడ్స్ డిక్షనరీ లేదా లిస్ట్ తీసుకోవచ్చు
+        response = func(security_list=sec_list)
+        if response:
+          break
+      except Exception as ex:
+        try:
+          # ఒకవేళ సింగిల్ ఆర్గ్యుమెంట్ లేదా వేరే ఫార్మాట్ అయితే
+          response = func(sec_list)
+          if response:
+            break
+        except Exception as ex2:
+          last_err = f"{m_name}: {ex2}"
+
   try:
-    response = dhan.get_ltp_data(
-        security_list=[
-            {"exchange_segment": "IDX_I", "security_id": "13"},
-            {"exchange_segment": "NSE_FNO", "security_id": "55332"},
-        ]
-    )
     spot_val, fut_val = None, None
     if response and isinstance(response, dict):
       data = response.get("data", {})
@@ -66,7 +86,12 @@ def get_live_market_data():
     if spot_val and spot_val > 0:
       return spot_val, fut_val if (fut_val and fut_val > 0) else spot_val, None
     else:
-      return None, None, f"రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ లేదు: {response}"
+      return (
+          None,
+          None,
+          f"రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ లేదు. రెస్పాన్స్: {response} |"
+          f" లాస్ట్ ఎర్రర్: {last_err}",
+      )
   except Exception as e:
     return None, None, str(e)
 
