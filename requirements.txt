@@ -1,5 +1,6 @@
 streamlit
-pandas
-requests
-dhanhq
 yfinance
+pandas
+numpy
+scikit-learn
+dhanhq
