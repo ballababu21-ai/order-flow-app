@@ -12,7 +12,7 @@ st.set_page_config(
 ist = ZoneInfo("Asia/Kolkata")
 
 CLIENT_ID = "1103805642"
-ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
+ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiUjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDIyMzkyLCJpYXQiOjE3ODg5MzU5OTIsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.cH3SVheBbNYn7c-pIOs2NWY7VzNB_KzIib5fw2l8liwjsNdB9ypiUstd6mus4Iuap2cjyGEXaL0gNU0P9Z-dzQ"
 
 
 def get_live_market_data():
@@ -23,7 +23,6 @@ def get_live_market_data():
       "Content-Type": "application/json",
       "Accept": "application/json",
   }
-  # ధన్ ఏపీఐ v2 మార్కెట్‌ఫీడ్ ఫార్మాట్
   payload = {"IDX_I": ["13"], "NSE_FNO": ["55332"]}
 
   try:
@@ -37,7 +36,6 @@ def get_live_market_data():
     if isinstance(res_json, dict):
       data = res_json.get("data", res_json)
 
-      # IDX_I పార్సింగ్
       idx_data = data.get("IDX_I", {})
       if isinstance(idx_data, dict):
         spot_val = float(
@@ -47,7 +45,6 @@ def get_live_market_data():
             )
         )
 
-      # NSE_FNO పార్సింగ్
       fno_data = data.get("NSE_FNO", {})
       if isinstance(fno_data, dict):
         fut_val = float(
