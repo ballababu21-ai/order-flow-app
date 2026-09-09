@@ -33,33 +33,30 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ఫంక్షన్ (ఫ్యూచర్ లేదా ఆప్షన్ కాంట్రాక్ట్ ద్వారా)
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ఫంక్షన్
 def get_live_market_data():
   try:
     if dhan:
-      # ఇండెక్స్ బదులుగా నిఫ్టీ ఫ్యూచర్ లేదా ఆప్షన్ సెగ్మెంట్ (NSE_FNO) వాడాలి
       response = dhan.get_ltp_data(
-          security_list=[{"exchange_segment": "NSE_FNO", "security_id": "13"}]
+          security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
       )
-      
       if response:
         data = response.get("data", response)
         if isinstance(data, dict):
           for k, v in data.items():
             if isinstance(v, dict):
               val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
-              if val > 1000:
+              if val > 0:
                 return val - 18.5, val
-            elif isinstance(v, (int, float)) and v > 1000:
+            elif isinstance(v, (int, float)) and v > 0:
               return float(v) - 18.5, float(v)
-              
-  except Exception as e:
+  except Exception:
     pass
 
   return 24225.50, 24244.00
 
 
-# Custom Dark Styling & Horizontal Tabs Fix
+# Custom Dark Styling
 st.markdown(
     """
 <style>
@@ -93,6 +90,10 @@ st.markdown(
 # Initial Fetch
 spot, fut_price = get_live_market_data()
 atm_strike = round(spot / 50) * 50
+
+# స్పాట్ ధర నుండి కిందికి 4, పైకి 4 స్ట్రైక్స్ జనరేట్ చేయడం (మొత్తం 9 స్ట్రైక్స్)
+strikes_list = [atm_strike + (i * 50) for i in range(-4, 5)]
+
 zero_gamma = atm_strike - 25
 call_wall = atm_strike + 150
 put_wall = atm_strike - 150
@@ -116,18 +117,18 @@ st.caption(
 )
 
 
-# --- Wall Touch & Alignment Validation Logic ---
+# Wall Touch & Alignment Validation Logic
 def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
   is_near_call = abs(price - c_wall) <= 20
   is_near_put = abs(price - p_wall) <= 20
 
   alignment_status = "ALIGNED"
-  message = "Flow మరియు MTF ట్రెండ్ ఒకే దిశలో ఉన్నాయి."
+  message = "Flow మరియు సమయం ఒకే దిశలో ఉన్నాయి."
 
   if is_near_call:
     return (
         "CALL WALL TOUCHED",
-        "⚠️ ప్రైస్ కాల్ వాల్‌ను తాకింది! రివర్సల్ లేదా బ్రేక్అవుట్ గమనించండి.",
+        "⚠️ ప్రైస్ కాల్ వాల్‌ను తాకింది! రివర్సల్ గమనించండి.",
     )
   elif is_near_put:
     return (
@@ -139,10 +140,7 @@ def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
       flow_type == "BEARISH" and mtf_trend == "BULLISH"
   ):
     alignment_status = "ALIGNMENT MISS"
-    message = (
-        "❌ ఆర్డర్ ఫ్లో మరియు మల్టీ-టైమ్‌ఫ్రేమ్ ట్రెండ్ మధ్య అలైన్‌మెంట్ మిస్"
-        " అయింది (False Signal Risk)."
-    )
+    message = "❌ ఆర్డర్ ఫ్లో మరియు ట్రెండ్ మధ్య అలైన్‌మెంట్ మిస్ అయింది."
 
   return alignment_status, message
 
@@ -153,6 +151,10 @@ def render_live_dashboard():
   now_local = datetime.now(ist)
   current_spot, current_fut = get_live_market_data()
   current_atm = round(current_spot / 50) * 50
+  
+  # డైనమిక్ 4 స్ట్రైక్స్ కిందికి, పైకి
+  active_strikes = [current_atm + (i * 50) for i in range(-4, 5)]
+
   c_wall = current_atm + 150
   p_wall = current_atm - 150
 
@@ -187,7 +189,12 @@ def render_live_dashboard():
   ])
 
   with tab1:
-    st.subheader("⏱️ Live Order Flow, Wall Touch & Alignment Tracker")
+    st.subheader("⏱️ Live Order Flow & 9-Strikes Range Tracker")
+    st.info(
+        f"🎯 **Active 9-Strikes Range (Spot ± 4):**"
+        f" `{', '.join(map(str, active_strikes))}`"
+    )
+
     current_flow = "BULLISH" if np.random.rand() > 0.4 else "BEARISH"
     status_type, status_msg = check_wall_and_alignment(
         current_spot, c_wall, p_wall, mtf_1m, current_flow
@@ -198,7 +205,7 @@ def render_live_dashboard():
           f"""
             <div class="wall-touch-box">
             <h4 style="color: #FFC107; margin:0 0 4px 0;">🎯 {status_type}</h4>
-            <p style="margin:0; font-size:13px; color:#FFF;">{status_msg} (Live Spot: ₹{current_spot:,.2f})</p>
+            <p style="margin:0; font-size:13px; color:#FFF;">{status_msg} (Spot: ₹{current_spot:,.2f})</p>
             </div>
             """,
           unsafe_allow_html=True,
