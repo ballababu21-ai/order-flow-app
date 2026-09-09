@@ -64,7 +64,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("⚡ NIFTY Master Pro Engine (Full Live Suite)")
+st.title("⚡ NIFTY Master Pro Engine (Live Suite)")
 
 
 @st.fragment(run_every=5)
@@ -94,7 +94,6 @@ def render_master_dashboard():
       f" **{current_atm}**"
   )
 
-  # Live Trend Banner based on live spot & ML
   if prediction == 1 and spot_val >= current_atm:
     st.markdown(
         """
@@ -116,7 +115,7 @@ def render_master_dashboard():
         unsafe_allow_html=True,
     )
 
-  tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+  tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
       "🤖 ML Signal",
       "📊 Flow Cards",
       "🎯 Strike Flow",
@@ -125,7 +124,6 @@ def render_master_dashboard():
       "⏳ MTF Matrix",
       "📐 Greeks",
       "📊 VWAP Bands",
-      "🛡️ Risk Manager",
   ])
 
   with tab1:
@@ -248,35 +246,8 @@ def render_master_dashboard():
         unsafe_allow_html=True,
     )
 
-  with tab9:
-    st.subheader("🛡️ Risk & Position Sizing Calculator")
-    col1, col2 = st.columns(2)
-    with col1:
-      capital = st.number_input("Capital (₹)", value=100000, step=10000)
-      risk_p = st.slider("Risk %", 0.5, 3.0, 1.0)
-    with col2:
-      entry = st.number_input("Option Entry Price", value=120.0)
-      sl = st.number_input("Stop Loss Price", value=95.0)
-
-    risk_per_share = entry - sl
-    if risk_per_share > 0:
-      max_risk = capital * (risk_p / 100)
-      qty = int(max_risk / risk_per_share)
-      lots = max(1, qty // 25)
-      st.markdown(
-          f"""
-            <div class="card-box" style="border-left: 4px solid #238636;">
-                <p style="margin:2px 0;">Suggested Lots: <b>{lots} Lots ({lots * 25} Shares)</b></p>
-                <p style="margin:2px 0;">Total Risk Amount: <b>₹{lots * 25 * risk_per_share:,.2f}</b></p>
-            </div>
-            """,
-          unsafe_allow_html=True,
-      )
-    else:
-      st.error("🚨 స్టాప్ లాస్ ప్రైస్ ఎంట్రీ ప్రైస్ కంటే తక్కువగా ఉండాలి.")
-
 
 render_master_dashboard()
 
 st.sidebar.title("⚙️ Engine Control")
-st.sidebar.success("🟢 All Live Modules & Tabs Loaded Successfully.")
+st.sidebar.success("🟢 All Live Modules Loaded Successfully.")
