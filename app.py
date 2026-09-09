@@ -10,7 +10,6 @@ st.set_page_config(
 
 ist = ZoneInfo("Asia/Kolkata")
 
-CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
 dhan = None
@@ -19,11 +18,19 @@ init_error = None
 try:
   from dhanhq import dhanhq
 
-  # పొజిషనల్ ఆర్గ్యుమెంట్స్‌గా క్లైంట్ ఐడీ మరియు టోకెన్ ఇవ్వాలి
-  dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+  # లేటెస్ట్ లైబ్రరీ వెర్షన్ ప్రకారం కేవలం టోకెన్ మాత్రమే పాస్ చేయాలి
+  dhan = dhanhq(ACCESS_TOKEN)
 except Exception as e:
   init_error = str(e)
-  dhan = None
+  try:
+    # ఒకవేళ ఇది ఫెయిల్ అయితే స్టాండర్డ్ మెథడ్ ఫాల్‌బ్యాక్
+    import dhanhq as dh
+
+    dhan = dh.DhanHQ(ACCESS_TOKEN)
+    init_error = None
+  except Exception as e2:
+    init_error = f"Err1: {e} | Err2: {e2}"
+    dhan = None
 
 
 def get_live_market_data():
