@@ -13,24 +13,17 @@ ist = ZoneInfo("Asia/Kolkata")
 CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
-# ధన్ లైబ్రరీని సేఫ్‌గా లోడ్ చేయడం
 dhan = None
 init_error = None
 
 try:
   from dhanhq import dhanhq
 
-  # అధికారిక డాక్యుమెంటేషన్ ప్రకారం కరెక్ట్ ఇనిషియలైజేషన్
-  dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
+  # పొజిషనల్ ఆర్గ్యుమెంట్స్‌గా క్లైంట్ ఐడీ మరియు టోకెన్ ఇవ్వాలి
+  dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
 except Exception as e:
   init_error = str(e)
-  try:
-    # ఒకవేళ సింగిల్ ఆర్గ్యుమెంట్ అయితే
-    dhan = dhanhq(ACCESS_TOKEN)
-    init_error = None
-  except Exception as e2:
-    init_error = f"Init 1: {e} | Init 2: {e2}"
-    dhan = None
+  dhan = None
 
 
 def get_live_market_data():
@@ -194,11 +187,6 @@ def render_live_dashboard():
 
 if dhan:
   render_live_dashboard()
-else:
-  st.warning(
-      "⚠️ దయచేసి `requirements.txt` లో `dhanhq` సరిగ్గా ఇన్‌స్టాల్ అయిందో లేదో"
-      " చెక్ చేయండి (pip install dhanhq)."
-  )
 
 st.sidebar.title("⚡ Control Panel")
 st.sidebar.info("🟢 Direct Token Mode Active.")
