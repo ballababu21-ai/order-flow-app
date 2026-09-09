@@ -16,7 +16,7 @@ ist = ZoneInfo("Asia/Kolkata")
 @st.cache_resource
 def train_ml_model():
   np.random.seed(42)
-  X_train = np.random.rand(500, 3)  # [Returns, MA_Diff, Volatility]
+  X_train = np.random.rand(500, 3)
   y_train = np.random.choice([0, 1], size=500)
   model = RandomForestClassifier(n_estimators=50, random_state=42)
   model.fit(X_train, y_train)
@@ -50,21 +50,48 @@ st.markdown(
 <style>
 .stApp { background-color: #0E1117 !important; color: #FFFFFF !important; }
 .stTabs [data-baseweb="tab-list"] { 
-    display: flex; flex-wrap: wrap !important; gap: 4px; background-color: #161B22; padding: 6px; border-radius: 8px; 
+    display: flex; flex-wrap: wrap !important; gap: 4px; background-color: #161B22; padding: 8px; border-radius: 8px; 
 }
 .stTabs [data-baseweb="tab"] { 
-    background-color: #21262D; color: #8B949E; border-radius: 4px; padding: 6px 8px; font-weight: 600; font-size: 11px; flex: 1 1 auto; text-align: center;
+    background-color: #21262D; color: #8B949E; border-radius: 4px; padding: 8px 12px; font-weight: 600; font-size: 12px; flex: 1 1 auto; text-align: center;
 }
 .stTabs [aria-selected="true"] { background-color: #238636 !important; color: #FFFFFF !important; }
-.card-box { background-color: #161B22; border: 1px solid #30363D; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-.mega-bullish { background-color: rgba(0, 200, 83, 0.15); border: 1px solid #00C853; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 10px; }
-.mega-bearish { background-color: rgba(255, 23, 68, 0.15); border: 1px solid #FF1744; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 10px; }
+
+/* Card & Alignment Fixes */
+.card-box { 
+    background-color: #161B22; 
+    border: 1px solid #30363D; 
+    border-radius: 8px; 
+    padding: 16px; 
+    margin-bottom: 12px; 
+}
+.mega-bullish { 
+    background-color: rgba(0, 200, 83, 0.12); 
+    border: 1px solid #00C853; 
+    border-radius: 8px; 
+    padding: 16px; 
+    text-align: center; 
+    margin-bottom: 12px; 
+}
+.mega-bearish { 
+    background-color: rgba(255, 23, 68, 0.12); 
+    border: 1px solid #FF1744; 
+    border-radius: 8px; 
+    padding: 16px; 
+    text-align: center; 
+    margin-bottom: 12px; 
+}
+
+/* DataFrame Padding & Alignment */
+dataframe, th, td {
+    text-align: center !important;
+}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-st.title("⚡ NIFTY Master Pro Engine (Live Suite)")
+st.title("⚡ NIFTY Master Pro Engine (Aligned Suite)")
 
 
 @st.fragment(run_every=5)
@@ -77,7 +104,6 @@ def render_master_dashboard():
   current_atm = round(spot_val / 50) * 50
   active_strikes = [current_atm + (i * 50) for i in range(-4, 5)]
 
-  # ML Prediction Calculation
   current_return = np.random.uniform(-0.002, 0.002)
   ma_diff = np.random.uniform(-10, 10)
   volatility = np.random.uniform(5, 25)
@@ -98,7 +124,7 @@ def render_master_dashboard():
     st.markdown(
         """
         <div class="mega-bullish">
-            <h3 style="color: #00C853; margin:0;">🚀 ML + Live: 1m + 3m + 5m MEGA BULLISH</h3>
+            <h3 style="color: #00C853; margin:0;">🚀 ML + Live: MEGA BULLISH</h3>
             <p style="color: #CCCCCC; margin:5px 0 0 0;">మార్కెట్ లైవ్ ప్రైస్ ATM పైన ఉంది & ML మోడల్ బయింగ్ సిగ్నల్ ఇచ్చింది!</p>
         </div>
         """,
@@ -108,8 +134,8 @@ def render_master_dashboard():
     st.markdown(
         """
         <div class="mega-bearish">
-            <h3 style="color: #FF1744; margin:0;">🔻 ML + Live: 1m + 3m + 5m BEARISH / CAUTION</h3>
-            <p style="color: #CCCCCC; margin:5px 0 0 0;">మార్కెట్ మూవ్‌మెంట్ మరియు ML ట్రెండ్ పరిశీలనలో ఉంది.</p>
+            <h3 style="color: #FF1744; margin:0;">🔻 ML + Live: BEARISH / CAUTION</h3>
+            <p style="color: #CCCCCC; margin:5px 0 0 0;">మార్కెట్ మూవ్‌మెంట్ మరియు ట్రెండ్ పరిశీలనలో ఉంది.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -166,7 +192,8 @@ def render_master_dashboard():
           "Put OI": p_oi,
           "Imbalance Bias": "BULLISH" if s <= current_atm else "BEARISH",
       })
-    st.dataframe(pd.DataFrame(strike_data), use_container_width=True)
+    df_strike = pd.DataFrame(strike_data)
+    st.dataframe(df_strike, use_container_width=True)
 
   with tab4:
     st.subheader("📈 Futures & OI Classification")
@@ -250,4 +277,4 @@ def render_master_dashboard():
 render_master_dashboard()
 
 st.sidebar.title("⚙️ Engine Control")
-st.sidebar.success("🟢 All Live Modules Loaded Successfully.")
+st.sidebar.success("🟢 Aligned UI Suite Loaded Successfully.")
