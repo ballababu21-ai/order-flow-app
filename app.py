@@ -4,13 +4,6 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-try:
-  from dhanhq import dhanhq
-
-  DHAN_AVAILABLE = True
-except ImportError:
-  DHAN_AVAILABLE = False
-
 st.set_page_config(
     page_title="NIFTY Institutional Quant Engine", page_icon="⚡", layout="wide"
 )
@@ -20,28 +13,29 @@ ist = ZoneInfo("Asia/Kolkata")
 CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
-# పర్ఫెక్ట్ ఇనిషియలైజేషన్ మెథడ్
+# ధన్ లైబ్రరీని సేఫ్‌గా లోడ్ చేయడం
 dhan = None
-if DHAN_AVAILABLE:
+init_error = None
+
+try:
+  from dhanhq import dhanhq
+
+  # అధికారిక డాక్యుమెంటేషన్ ప్రకారం కరెక్ట్ ఇనిషియలైజేషన్
+  dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
+except Exception as e:
+  init_error = str(e)
   try:
-    # ముందు క్లైంట్ ఐడీతో ఆబ్జెక్ట్ క్రియేట్ చేసి, ఆ తర్వాత టోకెన్ సెట్ చేయడం 100% వర్క్ అవుతుంది
-    dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
-  except Exception:
-    try:
-      dhan = dhanhq(CLIENT_ID)
-      if hasattr(dhan, "set_access_token"):
-        dhan.set_access_token(ACCESS_TOKEN)
-    except Exception:
-      try:
-        # గ్లోబల్ లేదా స్ట్రింగ్ కన్‌స్ట్రక్టర్ ఫాల్‌బ్యాక్
-        dhan = dhanhq(ACCESS_TOKEN)
-      except Exception:
-        dhan = None
+    # ఒకవేళ సింగిల్ ఆర్గ్యుమెంట్ అయితే
+    dhan = dhanhq(ACCESS_TOKEN)
+    init_error = None
+  except Exception as e2:
+    init_error = f"Init 1: {e} | Init 2: {e2}"
+    dhan = None
 
 
 def get_live_market_data():
   if not dhan:
-    return None, None, "Dhan క్లైంట్ కనెక్ట్ కాలేదు."
+    return None, None, f"ధన్ క్లైంట్ కనెక్ట్ కాలేదు. ఎర్రర్: {init_error}"
   try:
     response = dhan.get_ltp_data(
         security_list=[
@@ -93,13 +87,14 @@ st.markdown(
 )
 
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Live)")
+
 if dhan:
   st.success(
       f"🟢 Dhan API Connected Successfully |"
       f" {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
   )
 else:
-  st.error("❌ Dhan API కనెక్షన్ ఫెయిల్ అయింది. టోకెన్ చెక్ చేయండి.")
+  st.error(f"❌ కనెక్షన్ ఫెయిల్ అయింది. వివరాలు: {init_error}")
 
 
 def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
@@ -112,7 +107,6 @@ def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
 
 @st.fragment(run_every=5)
 def render_live_dashboard():
-  now_local = datetime.now(ist)
   current_spot, current_fut, err_msg = get_live_market_data()
 
   if current_spot is None:
@@ -200,6 +194,11 @@ def render_live_dashboard():
 
 if dhan:
   render_live_dashboard()
+else:
+  st.warning(
+      "⚠️ దయచేసి `requirements.txt` లో `dhanhq` సరిగ్గా ఇన్‌స్టాల్ అయిందో లేదో"
+      " చెక్ చేయండి (pip install dhanhq)."
+  )
 
 st.sidebar.title("⚡ Control Panel")
 st.sidebar.info("🟢 Direct Token Mode Active.")
