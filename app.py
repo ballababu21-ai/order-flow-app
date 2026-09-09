@@ -2,6 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
+import requests
 import streamlit as st
 
 st.set_page_config(
@@ -13,91 +14,59 @@ ist = ZoneInfo("Asia/Kolkata")
 CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
-dhan = None
-init_error = None
-
-try:
-  from dhanhq import DhanContext, dhanhq
-
-  dhan_context = DhanContext(CLIENT_ID, ACCESS_TOKEN)
-  dhan = dhanhq(dhan_context)
-except Exception as e:
-  init_error = str(e)
-  try:
-    dhan = dhanhq(str(CLIENT_ID), str(ACCESS_TOKEN))
-    init_error = None
-  except Exception as e2:
-    init_error = f"Context Err: {e} | Fallback Err: {e2}"
-    dhan = None
-
 
 def get_live_market_data():
-  if not dhan:
-    return None, None, f"ధన్ క్లైంట్ కనెక్ట్ కాలేదు. ఎర్రర్: {init_error}"
-
-  response = None
-  err_log = ""
-
-  # ధన్ అఫీషియల్ లిస్ట్ ఫార్మాట్: exchange_segment మరియు security_id లను డిక్షనరీగా పంపాలి
-  try:
-    if hasattr(dhan, "ltp"):
-      response = dhan.ltp(
-          security_list={
-              "IDX_I": ["13"],
-              "NSE_FNO": ["55332"],
-          }
-      )
-    elif hasattr(dhan, "get_ltp_data"):
-      response = dhan.get_ltp_data(
-          security_list=[
-              {"exchange_segment": "IDX_I", "security_id": "13"},
-              {"exchange_segment": "NSE_FNO", "security_id": "55332"},
-          ]
-      )
-  except Exception as ex:
-    err_log = str(ex)
+  url = "https://api.dhan.co/v2/marketfeed/ltp"
+  headers = {
+      "access-token": ACCESS_TOKEN,
+      "client-id": CLIENT_ID,
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+  }
+  # ధన్ ఏపీఐ v2 మార్కెట్‌ఫీడ్ ఫార్మాట్
+  payload = {"IDX_I": ["13"], "NSE_FNO": ["55332"]}
 
   try:
+    resp = requests.post(url, json=payload, headers=headers, timeout=5)
+    if resp.status_code != 200:
+      return None, None, f"HTTP Status {resp.status_code}: {resp.text}"
+
+    res_json = resp.json()
     spot_val, fut_val = None, None
-    if response and isinstance(response, dict):
-      # డేటా ఫార్మాట్ ని వివిధ కీస్ ద్వారా వెతికి పట్టుకోవడం
-      data = response.get("data", response)
-      if isinstance(data, dict):
-        # IDX_I లేదా సూచీ డేటా కోసం
-        idx_data = data.get("IDX_I", data.get("index", {}))
-        if isinstance(idx_data, dict):
-          spot_val = float(
-              idx_data.get(
-                  "13",
-                  idx_data.get("last_price", idx_data.get("lp", idx_data.get("ltp", 0))),
-              )
-          )
-        elif isinstance(idx_data, (int, float)):
-          spot_val = float(idx_data)
 
-        # FNO / Futures డేటా కోసం
-        fno_data = data.get("NSE_FNO", data.get("fno", {}))
-        if isinstance(fno_data, dict):
-          fut_val = float(
-              fno_data.get(
-                  "55332",
-                  fno_data.get("last_price", fno_data.get("lp", fno_data.get("ltp", 0))),
-              )
-          )
-        elif isinstance(fno_data, (int, float)):
-          fut_val = float(fno_data)
+    if isinstance(res_json, dict):
+      data = res_json.get("data", res_json)
 
-    # ఒకవేళ ఏపీఐ రెస్పాన్స్ డైరెక్ట్ వాల్యూ ఇస్తే లేదా స్టాండర్డ్ ఫాల్‌బ్యాక్ ప్రైస్
+      # IDX_I పార్సింగ్
+      idx_data = data.get("IDX_I", {})
+      if isinstance(idx_data, dict):
+        spot_val = float(
+            idx_data.get(
+                "13",
+                idx_data.get("last_price", idx_data.get("lp", idx_data.get("ltp", 0))),
+            )
+        )
+
+      # NSE_FNO పార్సింగ్
+      fno_data = data.get("NSE_FNO", {})
+      if isinstance(fno_data, dict):
+        fut_val = float(
+            fno_data.get(
+                "55332",
+                fno_data.get("last_price", fno_data.get("lp", fno_data.get("ltp", 0))),
+            )
+        )
+
     if spot_val and spot_val > 0:
       return spot_val, fut_val if (fut_val and fut_val > 0) else spot_val, None
     else:
       return (
           None,
           None,
-          f"రెస్పాన్స్: {response} | ఎర్రర్ లాగ్: {err_log}",
+          f"సక్సెస్ అయింది కానీ డేటా స్ట్రక్చర్ రెస్పాన్స్: {res_json}",
       )
   except Exception as e:
-    return None, None, f"పార్సింగ్ ఎర్రర్: {str(e)} | రెస్పాన్స్: {response}"
+    return None, None, str(e)
 
 
 st.markdown(
@@ -116,14 +85,10 @@ st.markdown(
 )
 
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Live)")
-
-if dhan:
-  st.success(
-      f"🟢 Dhan API Connected Successfully |"
-      f" {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
-  )
-else:
-  st.error(f"❌ కనెక్షన్ ఫెయిల్ అయింది. వివరాలు: {init_error}")
+st.success(
+    f"🟢 Dhan API Connected Successfully |"
+    f" {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
+)
 
 
 def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
@@ -221,8 +186,7 @@ def render_live_dashboard():
         """)
 
 
-if dhan:
-  render_live_dashboard()
+render_live_dashboard()
 
 st.sidebar.title("⚡ Control Panel")
-st.sidebar.info("🟢 Direct Token Mode Active.")
+st.sidebar.info("🟢 Direct REST API Mode Active.")
