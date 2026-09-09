@@ -10,26 +10,26 @@ st.set_page_config(
 
 ist = ZoneInfo("Asia/Kolkata")
 
+CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
 dhan = None
 init_error = None
 
 try:
-  from dhanhq import dhanhq
+  from dhanhq import DhanContext, dhanhq
 
-  # లేటెస్ట్ లైబ్రరీ వెర్షన్ ప్రకారం కేవలం టోకెన్ మాత్రమే పాస్ చేయాలి
-  dhan = dhanhq(ACCESS_TOKEN)
+  # అఫీషియల్ డాక్యుమెంటేషన్ ప్రకారం DhanContext వాడాలి
+  dhan_context = DhanContext(CLIENT_ID, ACCESS_TOKEN)
+  dhan = dhanhq(dhan_context)
 except Exception as e:
   init_error = str(e)
   try:
-    # ఒకవేళ ఇది ఫెయిల్ అయితే స్టాండర్డ్ మెథడ్ ఫాల్‌బ్యాక్
-    import dhanhq as dh
-
-    dhan = dh.DhanHQ(ACCESS_TOKEN)
+    # ఫాల్‌బ్యాక్ పద్ధతిగా పాత వెర్షన్ ట్రై చేయడానికి
+    dhan = dhanhq(str(CLIENT_ID), str(ACCESS_TOKEN))
     init_error = None
   except Exception as e2:
-    init_error = f"Err1: {e} | Err2: {e2}"
+    init_error = f"Context Err: {e} | Fallback Err: {e2}"
     dhan = None
 
 
