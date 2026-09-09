@@ -33,28 +33,27 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ఫంక్షన్
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే అప్‌డేటెడ్ ఫంక్షన్
 def get_live_market_data():
   try:
     if dhan:
       response = dhan.get_ltp_data(
           security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
       )
-      if response and "data" in response:
-        data = response["data"]
+      
+      if response and isinstance(response, dict):
+        data = response.get("data", response)
         spot_val = 0.0
 
         if isinstance(data, dict):
           for k, v in data.items():
             if isinstance(v, dict):
-              val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
-              if val > 0:
-                spot_val = val
+              spot_val = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
+              if spot_val > 0:
                 break
             elif isinstance(v, (int, float)) and v > 0:
               spot_val = float(v)
               break
-
         elif isinstance(data, list) and len(data) > 0:
           for item in data:
             if str(item.get("security_id")) == "13":
@@ -64,7 +63,7 @@ def get_live_market_data():
         if spot_val > 0:
           return spot_val, spot_val + 18.5
 
-  except Exception:
+  except Exception as e:
     pass
 
   return 24225.50, 24244.00
