@@ -59,16 +59,17 @@ def check_wall_and_alignment(price, c_wall, p_wall):
   return "ALIGNED", "ఆర్డర్ ఫ్లో మరియు ట్రెండ్ ఒకే దిశలో ఉన్నాయి."
 
 
-# కలర్ స్టైలింగ్ ఫంక్షన్
 def color_net_flow(val):
-  color = (
-      "background-color: rgba(0, 200, 83, 0.2); color: #00C853; font-weight:"
-      " bold;"
-      if val == "BULLISH"
-      else "background-color: rgba(255, 23, 68, 0.2); color: #FF1744;"
-      " font-weight: bold;"
-  )
-  return color
+  if val == "BULLISH":
+    return (
+        "background-color: rgba(0, 200, 83, 0.2); color: #00C853; font-weight:"
+        " bold;"
+    )
+  else:
+    return (
+        "background-color: rgba(255, 23, 68, 0.2); color: #FF1744; font-weight:"
+        " bold;"
+    )
 
 
 @st.fragment(run_every=5)
@@ -113,7 +114,6 @@ def render_live_dashboard():
     )
     st.success(f"**Alignment Status:** {status_type} — {status_msg}")
 
-    # Dynamic OI Table generation with colors
     oi_data = []
     for s in active_strikes:
       oi_data.append({
@@ -123,7 +123,8 @@ def render_live_dashboard():
           "Net Flow": "BULLISH" if s <= current_atm else "BEARISH",
       })
     df_oi = pd.DataFrame(oi_data)
-    styled_df = df_oi.style.applymap(color_net_flow, subset=["NetFlow"])
+    # Pandas Styler map వాడటం జరిగింది
+    styled_df = df_oi.style.map(color_net_flow, subset=["Net Flow"])
     st.dataframe(styled_df, use_container_width=True)
 
   with tab2:
