@@ -36,38 +36,35 @@ def get_live_market_data():
     return None, None, f"ధన్ క్లైంట్ కనెక్ట్ కాలేదు. ఎర్రర్: {init_error}"
 
   response = None
-  last_err = ""
+  err_log = ""
 
-  # వివిధ లైబ్రరీ వెర్షన్లలో ఉండే మెథడ్ పేర్లను ఆటోమేటిక్‌గా చెక్ చేయడానికి లూప్
-  methods_to_try = ["get_ltp_data", "ltp", "get_market_data", "get_quotes"]
-  sec_list = [
-      {"exchange_segment": "IDX_I", "security_id": "13"},
-      {"exchange_segment": "NSE_FNO", "security_id": "55332"},
-  ]
-
-  for m_name in methods_to_try:
-    if hasattr(dhan, m_name):
-      try:
-        func = getattr(dhan, m_name)
-        # కొన్ని మెథడ్స్ డిక్షనరీ లేదా లిస్ట్ తీసుకోవచ్చు
-        response = func(security_list=sec_list)
-        if response:
-          break
-      except Exception as ex:
-        try:
-          # ఒకవేళ సింగిల్ ఆర్గ్యుమెంట్ లేదా వేరే ఫార్మాట్ అయితే
-          response = func(sec_list)
-          if response:
-            break
-        except Exception as ex2:
-          last_err = f"{m_name}: {ex2}"
+  # ధన్ అఫీషియల్ లిస్ట్ ఫార్మాట్: exchange_segment మరియు security_id లను డిక్షనరీగా పంపాలి
+  try:
+    if hasattr(dhan, "ltp"):
+      response = dhan.ltp(
+          security_list={
+              "IDX_I": ["13"],
+              "NSE_FNO": ["55332"],
+          }
+      )
+    elif hasattr(dhan, "get_ltp_data"):
+      response = dhan.get_ltp_data(
+          security_list=[
+              {"exchange_segment": "IDX_I", "security_id": "13"},
+              {"exchange_segment": "NSE_FNO", "security_id": "55332"},
+          ]
+      )
+  except Exception as ex:
+    err_log = str(ex)
 
   try:
     spot_val, fut_val = None, None
     if response and isinstance(response, dict):
-      data = response.get("data", {})
+      # డేటా ఫార్మాట్ ని వివిధ కీస్ ద్వారా వెతికి పట్టుకోవడం
+      data = response.get("data", response)
       if isinstance(data, dict):
-        idx_data = data.get("IDX_I", {})
+        # IDX_I లేదా సూచీ డేటా కోసం
+        idx_data = data.get("IDX_I", data.get("index", {}))
         if isinstance(idx_data, dict):
           spot_val = float(
               idx_data.get(
@@ -75,7 +72,11 @@ def get_live_market_data():
                   idx_data.get("last_price", idx_data.get("lp", idx_data.get("ltp", 0))),
               )
           )
-        fno_data = data.get("NSE_FNO", {})
+        elif isinstance(idx_data, (int, float)):
+          spot_val = float(idx_data)
+
+        # FNO / Futures డేటా కోసం
+        fno_data = data.get("NSE_FNO", data.get("fno", {}))
         if isinstance(fno_data, dict):
           fut_val = float(
               fno_data.get(
@@ -83,17 +84,20 @@ def get_live_market_data():
                   fno_data.get("last_price", fno_data.get("lp", fno_data.get("ltp", 0))),
               )
           )
+        elif isinstance(fno_data, (int, float)):
+          fut_val = float(fno_data)
+
+    # ఒకవేళ ఏపీఐ రెస్పాన్స్ డైరెక్ట్ వాల్యూ ఇస్తే లేదా స్టాండర్డ్ ఫాల్‌బ్యాక్ ప్రైస్
     if spot_val and spot_val > 0:
       return spot_val, fut_val if (fut_val and fut_val > 0) else spot_val, None
     else:
       return (
           None,
           None,
-          f"రెస్పాన్స్ వచ్చింది కానీ ప్రైస్ లేదు. రెస్పాన్స్: {response} |"
-          f" లాస్ట్ ఎర్రర్: {last_err}",
+          f"రెస్పాన్స్: {response} | ఎర్రర్ లాగ్: {err_log}",
       )
   except Exception as e:
-    return None, None, str(e)
+    return None, None, f"పార్సింగ్ ఎర్రర్: {str(e)} | రెస్పాన్స్: {response}"
 
 
 st.markdown(
