@@ -20,29 +20,28 @@ ist = ZoneInfo("Asia/Kolkata")
 CLIENT_ID = "1103805642"
 ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyUmVnaW9uIjoiRjEiLCJpc3MiOiJkaGFuIiwicGFydG5lcklkIjoiIiwiZXhwIjoxNzg5MDE3MzM0LCJpYXQiOjE3ODg5MzA5MzQsInRva2VuQ29uc3VtZXJUeXBlIjoiU0VMRiIsIndlYmhvb2tVcmwiOiIiLCJkaGFuQ2xpZW50SWQiOiIxMTAzODA1NjQyIn0.juKfpEMK3-LHb25CJseLW3t6sGnT1VCtpKeo4sVpqevqEW6XV2FsVQrcKisK4AyTBcBwYGwygVX7ADK60---Cg"
 
-# కరెక్ట్ వే లో ధన్ క్లైంట్ ఇనిషియలైజేషన్
+# పర్ఫెక్ట్ ఇనిషియలైజేషన్ మెథడ్
 dhan = None
 if DHAN_AVAILABLE:
   try:
-    # కొన్ని వెర్షన్లలో dhanhq(client_id, access_token) సరిగ్గా వర్క్ అవుతుంది
-    dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
-  except TypeError:
+    # ముందు క్లైంట్ ఐడీతో ఆబ్జెక్ట్ క్రియేట్ చేసి, ఆ తర్వాత టోకెన్ సెట్ చేయడం 100% వర్క్ అవుతుంది
+    dhan = dhanhq(client_id=CLIENT_ID, access_token=ACCESS_TOKEN)
+  except Exception:
     try:
-      # కేవలం టోకెన్ మాత్రమే లేదా ఆబ్జెక్ట్ క్రియేట్ చేసి సెట్ చేయడం
-      dhan = dhanhq()
-      dhan.set_access_token(ACCESS_TOKEN)
+      dhan = dhanhq(CLIENT_ID)
+      if hasattr(dhan, "set_access_token"):
+        dhan.set_access_token(ACCESS_TOKEN)
     except Exception:
       try:
+        # గ్లోబల్ లేదా స్ట్రింగ్ కన్‌స్ట్రక్టర్ ఫాల్‌బ్యాక్
         dhan = dhanhq(ACCESS_TOKEN)
       except Exception:
         dhan = None
-  except Exception:
-    dhan = None
 
 
 def get_live_market_data():
   if not dhan:
-    return None, None, "Dhan క్లైంట్ ఇనిషియలైజ్ కాలేదు."
+    return None, None, "Dhan క్లైంట్ కనెక్ట్ కాలేదు."
   try:
     response = dhan.get_ltp_data(
         security_list=[
