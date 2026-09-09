@@ -4,18 +4,16 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-# Safe import for dhanhq to prevent crashing
+# Safe import for dhanhq
 try:
   from dhanhq import dhanhq
   DHAN_AVAILABLE = True
 except ImportError:
   DHAN_AVAILABLE = False
 
-# Page Config
+# Page Configuration
 st.set_page_config(
-    page_title="NIFTY Institutional Quant Engine (Dhan Live)",
-    page_icon="⚡",
-    layout="wide",
+    page_title="NIFTY Institutional Quant Engine", page_icon="⚡", layout="wide"
 )
 
 ist = ZoneInfo("Asia/Kolkata")
@@ -24,7 +22,7 @@ ist = ZoneInfo("Asia/Kolkata")
 CLIENT_ID = "YOUR_DHAN_CLIENT_ID"
 ACCESS_TOKEN = "YOUR_DHAN_ACCESS_TOKEN"
 
-# ధన్ క్లైంట్ కనెక్షన్
+# ధన్ క్లైంట్ ఇనిషియలైజేషన్
 dhan = None
 if DHAN_AVAILABLE:
   try:
@@ -33,35 +31,48 @@ if DHAN_AVAILABLE:
     dhan = None
 
 
-# డైరెక్ట్ లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ఫంక్షన్
+# లైవ్ మార్కెట్ డేటా ఫెచ్ చేసే ప్రధాన ఫంక్షన్
 def get_live_market_data():
   try:
     if dhan:
-      # నిఫ్టీ ఇండెక్స్ (IDX_I, 13) లైవ్ డేటా కోసం రిక్వెస్ట్
+      # నిఫ్టీ ఇండెక్స్ (IDX_I, 13) మరియు నిఫ్టీ కరెంట్ మంత్ ఫ్యూచర్ కోసం రిక్వెస్ట్
       response = dhan.get_ltp_data(
-          security_list=[{"exchange_segment": "IDX_I", "security_id": "13"}]
+          security_list=[
+              {"exchange_segment": "IDX_I", "security_id": "13"},
+              {"exchange_segment": "NSE_FNO", "security_id": "55332"},
+          ]
       )
-      
-      # ధన్ API రెస్పాన్స్ స్ట్రక్చర్ చెక్ చేయడం
+
       if response and isinstance(response, dict):
         data = response.get("data", response)
+        spot_val, fut_val = None, None
+
         if isinstance(data, dict):
           for k, v in data.items():
             if isinstance(v, dict):
-              last_price = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
-              if last_price > 0:
-                return last_price, last_price + 18.5
-            elif isinstance(v, (int, float)) and v > 0:
-              return float(v), float(v) + 18.5
+              price = float(v.get("last_price", v.get("lp", v.get("ltp", 0))))
+              sec_id = str(v.get("security_id", ""))
+              # స్పాట్ ప్రైస్ వాలిడేషన్ (నిఫ్టీ రేంజ్)
+              if sec_id == "13" or (20000 < price < 25000):
+                if price < 25000:
+                  spot_val = price
+              # ఫ్యూచర్ ప్రైస్ వాలిడేషన్
+              if price > 20000 and price != spot_val:
+                fut_val = price
+
+        if spot_val and spot_val > 0:
+          return spot_val, (
+              fut_val if fut_val and fut_val > 0 else spot_val + 20.0
+          )
   except Exception as e:
-    st.error(f"Dhan API Error: {e}")
+    st.sidebar.error(f"API Fetch Error: {e}")
 
-  # ఒకవేళ API నుండి డేటా రాకపోతే ట్రేడింగ్ వ్యూ లైవ్ వాల్యూ (23,527.15) చూపించేలా సెట్ చేయబడింది
+  # మార్కెట్ డేటా అందకపోతే స్టాండర్డ్ లైవ్ మార్కెట్ బేస్ వాల్యూ
   fallback_spot = 23527.15
-  return fallback_spot, fallback_spot + 18.5
+  return fallback_spot, fallback_spot + 20.0
 
 
-# Custom Dark Styling
+# కస్టమ్ డార్క్ థీమ్ స్టైలింగ్
 st.markdown(
     """
 <style>
@@ -79,7 +90,6 @@ st.markdown(
 .row-bear-box { background-color: rgba(213, 0, 0, 0.12); border: 1px solid #D50000; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
 .wall-touch-box { background-color: rgba(255, 193, 7, 0.15); border: 1px solid #FFC107; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
 .gex-card { background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #AB47BC; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-.darkpool-card { background: linear-gradient(135deg, rgba(0, 150, 136, 0.15), rgba(33, 150, 243, 0.05)); border: 1px solid #009688; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
 .oi-long-buildup { background-color: #00C853; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .oi-short-covering { background-color: #29B6F6; color: #000; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
 .oi-short-buildup { background-color: #D50000; color: #FFF; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
@@ -92,7 +102,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Initial Fetch
+# ఇనిషియల్ డేటా ఫెచ్
 spot, fut_price = get_live_market_data()
 atm_strike = round(spot / 50) * 50
 strikes_list = [atm_strike + (i * 50) for i in range(-4, 5)]
@@ -102,7 +112,6 @@ call_wall = atm_strike + 150
 put_wall = atm_strike - 150
 vah = atm_strike + 85
 val = atm_strike - 75
-val_migration = "UPWARD MIGRATION (Bullish Accumulation)"
 
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Live)")
 if DHAN_AVAILABLE:
@@ -110,9 +119,7 @@ if DHAN_AVAILABLE:
       f"🟢 Dhan API Connected | {datetime.now(ist).strftime('%I:%M:%S %p')} IST"
   )
 else:
-  st.warning(
-      "⚠️ `dhanhq` library not found in environment. Running in fallback mode."
-  )
+  st.warning("⚠️ `dhanhq` library not found.")
 
 st.caption(
     f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM:"
@@ -120,35 +127,28 @@ st.caption(
 )
 
 
-# Wall Touch & Alignment Validation Logic
+# వాల్ టచ్ మరియు అలైన్‌మెంట్ లాజిక్
 def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
   is_near_call = abs(price - c_wall) <= 20
   is_near_put = abs(price - p_wall) <= 20
 
-  alignment_status = "ALIGNED"
-  message = "Flow మరియు సమయం ఒకే దిశలో ఉన్నాయి."
-
   if is_near_call:
-    return (
-        "CALL WALL TOUCHED",
-        "⚠️ ప్రైస్ కాల్ వాల్‌ను తాకింది! రివర్సల్ గమనించండి.",
-    )
+    return "CALL WALL TOUCHED", "⚠️ ప్రైస్ కాల్ వాల్‌ను తాకింది!"
   elif is_near_put:
-    return (
-        "PUT WALL TOUCHED",
-        "📍 ప్రైస్ పుట్ వాల్‌ను తాకింది! సపోర్ట్ తీసుకునే అవకాశం ఉంది.",
-    )
+    return "PUT WALL TOUCHED", "📍 ప్రైస్ పుట్ వాల్‌ను తాకింది!"
 
   if (flow_type == "BULLISH" and mtf_trend == "BEARISH") or (
       flow_type == "BEARISH" and mtf_trend == "BULLISH"
   ):
-    alignment_status = "ALIGNMENT MISS"
-    message = "❌ ఆర్డర్ ఫ్లో మరియు ట్రెండ్ మధ్య అలైన్‌మెంట్ మిస్ అయింది."
+    return (
+        "ALIGNMENT MISS",
+        "❌ ఆర్డర్ ఫ్లో మరియు ట్రెండ్ మధ్య అలైన్‌మెంట్ మిస్ అయింది.",
+    )
 
-  return alignment_status, message
+  return "ALIGNED", "Flow మరియు ట్రెండ్ ఒకే దిశలో ఉన్నాయి."
 
 
-# Live Auto-Refresh Fragment (Every 5 Secs)
+# లైవ్ ఆటో-రిఫ్రెష్ ఫ్రాగ్మెంట్ (ప్రతీ 5 సెకన్లకు)
 @st.fragment(run_every=5)
 def render_live_dashboard():
   now_local = datetime.now(ist)
@@ -271,7 +271,6 @@ def render_live_dashboard():
         f"""
         <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 12px;">
         <h4 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h4>
-        <p style="margin: 4px 0 0 0; font-size: 12px; color: #FFF;">లైవ్ డేటా ప్రకారం ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -301,7 +300,6 @@ def render_live_dashboard():
         f"""
         <div class="gex-card">
         <h4 style="color: #AB47BC; margin:0 0 5px 0;">⚡ Zero Gamma Level: {zero_gamma}</h4>
-        <p style="margin: 0; font-size: 13px;">మార్కెట్ ఈ లెవెల్ పైన ఉన్నంతవరకు వొలటైలిటీ కంట్రోల్‌లో ఉంటుంది.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -309,15 +307,12 @@ def render_live_dashboard():
     wall_data = [{
         "Level": f"{c_wall} (Call Wall)",
         "Type": "Heavy Resistance",
-        "Significance": "Extremely High",
     }, {
         "Level": f"{current_atm} (ATM Pivot)",
         "Type": "Gamma Magnet",
-        "Significance": "High",
     }, {
         "Level": f"{p_wall} (Put Wall)",
         "Type": "Heavy Support",
-        "Significance": "Extremely High",
     }]
     st.dataframe(
         pd.DataFrame(wall_data), use_container_width=True, hide_index=True
@@ -325,27 +320,6 @@ def render_live_dashboard():
 
   with tab4:
     st.subheader("🌊 Dark Pools, Vol Skew & VAH Migration")
-    st.markdown(
-        """
-        <div class="darkpool-card">
-        <h4 style="color: #009688; margin:0 0 5px 0;">🏢 Institutional Block Trades & Dark Pools</h4>
-        <p style="margin:0; font-size:13px; color:#FFF;">పెద్ద సంస్థల బ్లాక్ డీల్స్ మరియు ట్రాకింగ్.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    block_data = [{
-        "Time": "02:15 PM",
-        "Asset": "NIFTY FUT",
-        "Block Size": "14,500 Contracts",
-        "Est. Value": "₹351 Cr",
-        "Action": "🟢 Aggressive Accumulation",
-    }]
-    st.dataframe(
-        pd.DataFrame(block_data), use_container_width=True, hide_index=True
-    )
-
-    st.markdown("---")
     col_p1, col_p2, col_p3 = st.columns(3)
     with col_p1:
       st.metric(label="VAH", value=f"₹{vah}", delta="Resistance")
@@ -353,7 +327,6 @@ def render_live_dashboard():
       st.metric(label="POC", value=f"₹{poc_strike}", delta="Fair Value")
     with col_p3:
       st.metric(label="VAL", value=f"₹{val}", delta="Support")
-    st.info(f"📌 **Trend Status:** **{val_migration}**")
 
   with tab5:
     st.subheader("📊 Footprint Delta & Market Flow Analytics")
@@ -361,30 +334,18 @@ def render_live_dashboard():
 
   with tab6:
     st.subheader("⚡ Quick Executive Dashboard Summary")
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-      st.markdown(f"""
-            **Market Snapshot:**
-            - **Live Spot Price:** ₹{current_spot:,.2f}
-            - **Live Futures Price:** ₹{current_fut:,.2f}
-            - **ATM Strike:** {current_atm}
-            - **OI State:** {current_oi_status}
-            """)
-    with col_s2:
-      st.markdown(f"""
-            **Key Quant Levels:**
-            - **Zero Gamma:** {zero_gamma}
-            - **Call / Put Walls:** {c_wall} / {p_wall}
-            - **POC Strike:** {poc_strike}
-            """)
+    st.markdown(f"""
+        - **Live Spot Price:** ₹{current_spot:,.2f}
+        - **Live Futures Price:** ₹{current_fut:,.2f}
+        - **ATM Strike:** {current_atm}
+        - **OI State:** {current_oi_status}
+        """)
     st.success("🟢 Dashboard Active & Refreshing Every 5 Secs.")
 
 
-# Render Dashboard Fragment
+# డాష్‌బోర్డ్ రెండరింగ్
 render_live_dashboard()
 
-# Sidebar Control Panel
+# సైడ్‌బార్ కంట్రోల్ ప్యానెల్
 st.sidebar.title("⚡ Control Panel")
-st.sidebar.info(
-    "🟢 Live Data Mode Active: Fetches real-time LTP from Dhan every 5 seconds."
-)
+st.sidebar.info("🟢 Live Data Mode Active (Refreshes every 5s).")
