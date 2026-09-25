@@ -132,7 +132,7 @@ def fetch_options_data(symbol_name):
   return events, live_spot, atm_strike
 
 
-# 5. HEADER & TOP BADGES
+# 5. HEADER & NAVIGATION
 st.markdown(
     '<div class="mobile-header">MAHESH Money Flow</div>', unsafe_allow_html=True
 )
@@ -183,7 +183,7 @@ def render_table(data):
   )
 
 
-# 6. AUTO REFRESH FRAGMENT (Replaces problematic time.sleep)
+# 6. AUTO REFRESH DASHBOARD (USING STREAMLIT FRAGMENT)
 @st.fragment(run_every=refresh_speed)
 def run_live_dashboard():
   events_data, live_spot, atm_strike = fetch_options_data(symbol)
