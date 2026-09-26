@@ -5,14 +5,11 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-# Dhan API లైబ్రరీ ఇంపోర్ట్ (pip install dhanhq)
+# Dhan API లైబ్రరీ ఇంపోర్ట్
 try:
   from dhanhq import dhanhq
 except ImportError:
-  st.error(
-      "DhanHQ లైబ్రరీ ఇన్‌స్టాల్ కాలేదు. దయచేసి `pip install dhanhq` అని రన్"
-      " చేయండి."
-  )
+  pass
 
 # Page Config
 st.set_page_config(
@@ -21,29 +18,25 @@ st.set_page_config(
     layout="wide",
 )
 
-# st.secrets నుండి Dhan API క్రెడెన్షియల్స్ తీసుకోవడం
-client_id_input = None
-access_token_input = None
-api_connected = False
+# సైడ్‌బార్‌లో సెట్టింగ్స్ మరియు క్రెడెన్షియల్స్ ఇన్‌పుట్
+st.sidebar.title("⚡ Dhan API Settings")
+client_id_input = st.sidebar.text_input("Dhan Client ID")
+access_token_input = st.sidebar.text_input("Dhan Access Token", type="password")
+
 dhan_client = None
+api_connected = False
 
-try:
-  if "dhan" in st.secrets:
-    client_id_input = st.secrets["dhan"].get("client_id")
-    access_token_input = st.secrets["dhan"].get("access_token")
-except Exception:
-  pass
-
-# Dhan Client ఇనిషియలైజేషన్
 if client_id_input and access_token_input:
   try:
     dhan_client = dhanhq(client_id_input, access_token_input)
     api_connected = True
+    st.sidebar.success("🟢 Dhan API విజయవంతంగా కనెక్ట్ అయింది!")
   except Exception as e:
-    st.sidebar.error(f"API Connection Failed: {e}")
-
-ist = ZoneInfo("Asia/Kolkata")
-now_ist = datetime.now(ist)
+    st.sidebar.error(f"కనెక్షన్ విఫలమైంది: {e}")
+else:
+  st.sidebar.warning(
+      "దయచేసి లైవ్ డేటా కోసం మీ క్లయింట్ ఐడి మరియు టోకెన్‌ను ఎంటర్ చేయండి."
+  )
 
 # Custom Dark Styling & Horizontal Tabs Fix
 st.markdown(
@@ -76,37 +69,34 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+ist = ZoneInfo("Asia/Kolkata")
+now_ist = datetime.now(ist)
 
-# Live Data Fetching Function using Dhan API with st.secrets
+
+# లైవ్ డేటా ఫెచ్ చేసే ఫంక్షన్
 @st.cache_data(ttl=5)
-def fetch_dhan_market_data():
-  if not api_connected or not dhan_client:
+def fetch_dhan_market_data(c_id, token):
+  if not c_id or not token:
     return 24225.50, 24244.00, False
-
   try:
-    # NIFTY Index Security ID in Dhan is typically '13' (IDX_I)
-    quote = dhan_client.get_latest_price(
-        security_id="13", exchange_segment="IDX_I"
-    )
+    dh = dhanhq(c_id, token)
+    quote = dh.get_latest_price(security_id="13", exchange_segment="IDX_I")
     if quote and "data" in quote:
       spot_val = float(quote["data"].get("last_price", 24225.50))
       return spot_val, spot_val + 18.5, True
   except Exception:
     pass
-
   return 24225.50, 24244.00, False
 
 
-# Fetch live or default prices
-spot, fut_price, is_live = fetch_dhan_market_data()
+spot, fut_price, is_live = fetch_dhan_market_data(
+    client_id_input, access_token_input
+)
 
 atm_strike = round(spot / 50) * 50
 zero_gamma = atm_strike - 25
 call_wall = atm_strike + 150
 put_wall = atm_strike - 150
-
-vanna_atm = round(np.random.uniform(-0.025, 0.035), 4)
-charm_atm = round(np.random.uniform(-0.045, 0.055), 4)
 
 vah = atm_strike + 85
 val = atm_strike - 75
@@ -123,13 +113,13 @@ st.title("⚡ NIFTY Institutional Quant Engine (Dhan Connected)")
 
 if is_live:
   st.success(
-      f"🟢 Dhan API Connected via Secrets (Live Market Data) |"
+      f"🟢 Dhan API లైవ్ డేటా కనెక్ట్ అయింది |"
       f" {now_ist.strftime('%I:%M:%S %p')} IST"
   )
 else:
   st.warning(
-      "⚠️ Streamlit Secrets లో `dhan` క్రెడెన్షియల్స్ దొరకలేదు. (Simulation"
-      " మోడ్‌లో రన్ అవుతోంది)."
+      "⚠️ దయచేసి సైడ్‌బార్‌లో మీ క్రెడెన్షియల్స్ ఇవ్వండి (ప్రస్తుతం సిమ్యులేషన్"
+      " మోడ్‌లో ఉంది)."
   )
 
 st.caption(
@@ -155,11 +145,9 @@ current_oi_status = np.random.choice(oi_states, p=[0.45, 0.25, 0.20, 0.10])
 poc_strike = atm_strike + np.random.choice([-50, 0, 50])
 
 
-# --- Wall Touch & Alignment Validation Logic ---
 def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
   is_near_call = abs(price - c_wall) <= 20
   is_near_put = abs(price - p_wall) <= 20
-
   alignment_status = "ALIGNED"
   message = "Flow మరియు MTF ట్రెండ్ ఒకే దిశలో ఉన్నాయి."
 
@@ -180,7 +168,7 @@ def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
     alignment_status = "ALIGNMENT MISS"
     message = (
         "❌ ఆర్డర్ ఫ్లో మరియు మల్టీ-టైమ్‌ఫ్రేమ్ ట్రెండ్ మధ్య అలైన్‌మెంట్ మిస్"
-        " అయింది (False Signal Risk)."
+        " అయింది."
     )
 
   return alignment_status, message
@@ -198,7 +186,6 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 
 with tab1:
   st.subheader("⏱️ Live Order Flow, Wall Touch & Alignment Tracker")
-
   current_check_price = spot + np.random.choice([-140, 0, 130])
   current_flow = "BULLISH" if np.random.rand() > 0.4 else "BEARISH"
   status_type, status_msg = check_wall_and_alignment(
@@ -245,7 +232,7 @@ with tab1:
       unsafe_allow_html=True,
   )
 
-  st.markdown("#### 🔄 Recent Order Flow from Dhan")
+  st.markdown("#### 🔄 Recent Order Flow")
   for i in range(3):
     t_str = (now_ist - timedelta(minutes=i)).strftime("%H:%M")
     s_price = round(spot + np.random.uniform(-4, 4), 2)
@@ -275,19 +262,16 @@ with tab2:
       f"""
     <div style="background: rgba(41, 182, 246, 0.1); border: 2px solid #29B6F6; border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 12px;">
     <h4 style="color: #29B6F6; margin: 0;">🎯 Volume POC Strike: {poc_strike}</h4>
-    <p style="margin: 4px 0 0 0; font-size: 12px; color: #FFF;">ధన్ లైవ్ డేటా ప్రకారం ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది.</p>
+    <p style="margin: 4px 0 0 0; font-size: 12px; color: #FFF;">ఈ స్ట్రైక్ వద్ద అత్యధిక ట్రేడింగ్ వాల్యూమ్ నమోదైంది.</p>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
   col1, col2, col3 = st.columns(3)
-  with col1:
-    st.metric(label="Live PCR", value="1.14", delta="+0.08")
-  with col2:
-    st.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
-  with col3:
-    st.metric(label="ATM IV", value="13.45%", delta="-0.80%")
+  col1.metric(label="Live PCR", value="1.14", delta="+0.08")
+  col2.metric(label="Max Pain", value=f"{atm_strike}", delta="Neutral")
+  col3.metric(label="ATM IV", value="13.45%", delta="-0.80%")
 
   st.markdown("---")
   mtf_data = [
@@ -332,8 +316,8 @@ with tab4:
   st.markdown(
       """
     <div class="darkpool-card">
-    <h4 style="color: #009688; margin:0 0 5px 0;">🏢 Institutional Block Trades & Dark Pools</h4>
-    <p style="margin:0; font-size:13px; color:#FFF;">ధన్ API ద్వారా ట్రాక్ చేయబడిన పెద్ద సంస్థల బ్లాక్ డీల్స్.</p>
+    <h4 style="color: #009688; margin:0 0 5px 0;">🏢 Institutional Block Trades</h4>
+    <p style="margin:0; font-size:13px; color:#FFF;">పెద్ద సంస్థల బ్లాక్ డీల్స్ వివరాలు.</p>
     </div>
     """,
       unsafe_allow_html=True,
@@ -351,12 +335,9 @@ with tab4:
 
   st.markdown("---")
   col_p1, col_p2, col_p3 = st.columns(3)
-  with col_p1:
-    st.metric(label="VAH", value=f"₹{vah}", delta="Resistance")
-  with col_p2:
-    st.metric(label="POC", value=f"₹{poc_strike}", delta="Fair Value")
-  with col_p3:
-    st.metric(label="VAL", value=f"₹{val}", delta="Support")
+  col_p1.metric(label="VAH", value=f"₹{vah}", delta="Resistance")
+  col_p2.metric(label="POC", value=f"₹{poc_strike}", delta="Fair Value")
+  col_p3.metric(label="VAL", value=f"₹{val}", delta="Support")
   st.info(f"📌 **Trend Status:** **{val_migration}**")
 
 with tab5:
@@ -381,10 +362,9 @@ with tab6:
         - **Call / Put Walls:** {call_wall} / {put_wall}
         - **POC Strike:** {poc_strike}
         """)
-  st.success("🟢 Dhan API connection active. All 6 modules are fully operational.")
+  st.success("🟢 అన్ని మాడ్యూల్స్ సక్రమంగా పనిచేస్తున్నాయి.")
 
 # Auto Refresh Control in Sidebar
-st.sidebar.title("⚡ Control Panel")
 auto = st.sidebar.checkbox("⚡ Live Auto-Refresh (5 sec)", value=True)
 if auto:
   time.sleep(5)
