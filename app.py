@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import time
@@ -6,12 +5,42 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+# Dhan API లైబ్రరీ ఇంపోర్ట్ (pip install dhanhq)
+try:
+  from dhanhq import dhanhq
+except ImportError:
+  st.error(
+      "DhanHQ లైబ్రరీ ఇన్‌స్టాల్ కాలేదు. దయచేసి `pip install dhanhq` అని రన్"
+      " చేయండి."
+  )
+
 # Page Config
 st.set_page_config(
     page_title="NIFTY Institutional Quant Engine (Dhan Connected)",
     page_icon="⚡",
     layout="wide",
 )
+
+# st.secrets నుండి Dhan API క్రెడెన్షియల్స్ తీసుకోవడం
+client_id_input = None
+access_token_input = None
+api_connected = False
+dhan_client = None
+
+try:
+  if "dhan" in st.secrets:
+    client_id_input = st.secrets["dhan"].get("client_id")
+    access_token_input = st.secrets["dhan"].get("access_token")
+except Exception:
+  pass
+
+# Dhan Client ఇనిషియలైజేషన్
+if client_id_input and access_token_input:
+  try:
+    dhan_client = dhanhq(client_id_input, access_token_input)
+    api_connected = True
+  except Exception as e:
+    st.sidebar.error(f"API Connection Failed: {e}")
 
 ist = ZoneInfo("Asia/Kolkata")
 now_ist = datetime.now(ist)
@@ -47,12 +76,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Market State & Advanced Quant Variables
-spot = 24225.50
-atm_strike = round(spot / 50) * 50
-fut_price = spot + 18.5
-zero_gamma = atm_strike - 25
 
+# Live Data Fetching Function using Dhan API with st.secrets
+@st.cache_data(ttl=5)
+def fetch_dhan_market_data():
+  if not api_connected or not dhan_client:
+    return 24225.50, 24244.00, False
+
+  try:
+    # NIFTY Index Security ID in Dhan is typically '13' (IDX_I)
+    quote = dhan_client.get_latest_price(
+        security_id="13", exchange_segment="IDX_I"
+    )
+    if quote and "data" in quote:
+      spot_val = float(quote["data"].get("last_price", 24225.50))
+      return spot_val, spot_val + 18.5, True
+  except Exception:
+    pass
+
+  return 24225.50, 24244.00, False
+
+
+# Fetch live or default prices
+spot, fut_price, is_live = fetch_dhan_market_data()
+
+atm_strike = round(spot / 50) * 50
+zero_gamma = atm_strike - 25
 call_wall = atm_strike + 150
 put_wall = atm_strike - 150
 
@@ -71,7 +120,18 @@ val_migration = np.random.choice(
 )
 
 st.title("⚡ NIFTY Institutional Quant Engine (Dhan Connected)")
-st.success(f"🟢 Dhan API Connected | {now_ist.strftime('%I:%M:%S %p')} IST")
+
+if is_live:
+  st.success(
+      f"🟢 Dhan API Connected via Secrets (Live Market Data) |"
+      f" {now_ist.strftime('%I:%M:%S %p')} IST"
+  )
+else:
+  st.warning(
+      "⚠️ Streamlit Secrets లో `dhan` క్రెడెన్షియల్స్ దొరకలేదు. (Simulation"
+      " మోడ్‌లో రన్ అవుతోంది)."
+  )
+
 st.caption(
     f"SPOT: **₹{spot:,.2f}** | FUT: **₹{fut_price:,.2f}** | ATM:"
     f" **{atm_strike}**"
@@ -111,7 +171,7 @@ def check_wall_and_alignment(price, c_wall, p_wall, mtf_trend, flow_type):
   elif is_near_put:
     return (
         "PUT WALL TOUCHED",
-        "ⵜ ప్రైస్ పుట్ వాల్‌ను తాకింది! సపోర్ట్ తీసుకునే అవకాశం ఉంది.",
+        "📍 ప్రైస్ పుట్ వాల్‌ను తాకింది! సపోర్ట్ తీసుకునే అవకాశం ఉంది.",
     )
 
   if (flow_type == "BULLISH" and mtf_trend == "BEARISH") or (
@@ -139,7 +199,6 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 with tab1:
   st.subheader("⏱️ Live Order Flow, Wall Touch & Alignment Tracker")
 
-  # Simulating current price near a wall or normal range for testing
   current_check_price = spot + np.random.choice([-140, 0, 130])
   current_flow = "BULLISH" if np.random.rand() > 0.4 else "BEARISH"
   status_type, status_msg = check_wall_and_alignment(
